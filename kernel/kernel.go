@@ -27,6 +27,7 @@ func (k Periodic) Observe(x []float64) float64 {
 	return math.Exp(-2 * d * d)
 }
 
+// The constants below are for Matern kernels.
 const (
 	sqrt3 = 1.7320508075688772
 	sqrt5 = 2.2360679774997900
