@@ -44,6 +44,8 @@ func (k Matern32) Observe(x []float64) float64 {
 
 // Type Matern52 is the Matern(nu=5/2) kernel type. A Matern
 // kernel has a single parameter, the length scale.
+type Matern52 struct{}
+
 func (k Matern52) Observe(x []float64) float64 {
 	l := math.Exp(x[0])
 	d := math.Abs(x[1]-x[2]) / l
