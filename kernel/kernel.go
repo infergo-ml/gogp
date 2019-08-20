@@ -55,7 +55,7 @@ func (k matern32) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2])
 }
 
-func(k matern32) Cov(l, xa, xb float64) float64 {
+func (k matern32) Cov(l, xa, xb float64) float64 {
 	d := math.Abs(xa-xb) / l
 	return (1 + sqrt3*d) * math.Exp(-sqrt3*d)
 }
