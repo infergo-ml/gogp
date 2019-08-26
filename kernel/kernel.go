@@ -16,7 +16,7 @@ func (k normal) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2])
 }
 
-func (k normal) Cov(l, xa, xb float64) float64 {
+func (normal) Cov(l, xa, xb float64) float64 {
 	d := (xa - xb) / l
 	return math.Exp(-d * d / 2)
 }
@@ -33,7 +33,7 @@ func (k periodic) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2], x[3])
 }
 
-func (k periodic) Cov(l, p, xa, xb float64) float64 {
+func (periodic) Cov(l, p, xa, xb float64) float64 {
 	d := math.Sin(math.Pi*math.Abs(xa-xb)/p) / l
 	return math.Exp(-2 * d * d)
 }
@@ -55,7 +55,7 @@ func (k matern32) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2])
 }
 
-func (k matern32) Cov(l, xa, xb float64) float64 {
+func (matern32) Cov(l, xa, xb float64) float64 {
 	d := math.Abs(xa-xb) / l
 	return (1 + sqrt3*d) * math.Exp(-sqrt3*d)
 }
@@ -70,7 +70,7 @@ func (k matern52) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2])
 }
 
-func (k matern52) Cov(l, xa, xb float64) float64 {
+func (matern52) Cov(l, xa, xb float64) float64 {
 	d := math.Abs(xa-xb) / l
 	return (1 + sqrt5*d + 5/3*d*d) * math.Exp(-sqrt5*d)
 }
