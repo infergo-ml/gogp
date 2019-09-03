@@ -5,8 +5,8 @@ import (
 )
 
 type GP struct {
-	kernel Model
-	theta  []float64
+	Kernel Model
+	Theta  []float64
 }
 
 // Absorb absorbs observations into the process
