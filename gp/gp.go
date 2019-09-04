@@ -26,7 +26,6 @@ func (gp GP) Train(x [][]float64, y []float64) {
 // ll computes log-likelihood of the parameters given the data
 // (GPML:5.8):
 //   L = −½ log|Σ| − ½ y^⊤ Σ^−1 y − n/2 log(2π)
-
 func (gp GP) ll() float64 {
 	return 0.
 }
