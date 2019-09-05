@@ -30,6 +30,8 @@ func (gp GP) Absorb(x [][]float64, y []float64) {
 	gp.defaults()
 
 	// Covariance matrix
+	// TODO: compute the covariance matrix and gradient in parallel,
+	// i, j, kargs, nkargs must be copied for that
 	K := mat.NewSymDense(len(x), nil)
 	kargs := make([]float64, gp.NParam+2*gp.NDim)
 	nkargs := make([]float64, gp.NNoiseParam+gp.NDim)
