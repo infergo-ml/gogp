@@ -15,11 +15,11 @@ type GP struct {
 // Default noise, present for numerical stability; can
 // be zeroed by using ConstantNoise(0.) as the noise
 // kernel.
-const NONOISE = 1E-10
+const nonoise = 1E-10
 
 func (gp GP) defaults() {
 	if gp.NoiseKernel == nil {
-		gp.NoiseKernel = kernel.ConstantNoise(NONOISE)
+		gp.NoiseKernel = kernel.ConstantNoise(nonoise)
 		gp.NoiseTheta = make([]float64, 0)
 	}
 }
