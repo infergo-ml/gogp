@@ -1,24 +1,40 @@
 package gp
 
 import (
-	. "bitbucket/org/dtolpin/infergo/model"
+	. "bitbucket.org/dtolpin/infergo/model"
+	"bitbucket.org/dtolpin/gogp/kernel/ad"
 	"gonum.org/v1/gonum/mat"
 )
 
 type GP struct {
-	NParam, NNoiseParam, NDim int       // dimensions
-	Kernel, NoiseKernel       Model     // kernel
-	Theta, ThetaNoise         []float64 // kernel parameters
+	NParam, NNoiseParam, NDim int  // dimensions
+	Kernel, NoiseKernel  Model     // kernel
+	Theta, NoiseTheta    []float64 // kernel parameters
+}
+
+// Default noise, present for numerical stability; can
+// be zeroed by using ConstantNoise(0.) as the noise
+// kernel.
+const NONOISE = 1E-10
+
+func (gp GP) defaults() {
+	if gp.NoiseKernel == nil {
+		gp.NoiseKernel = kernel.ConstantNoise(NONOISE)
+		gp.NoiseTheta = make([]float64, 0)
+	}
 }
 
 // Absorb absorbs observations into the process
 func (gp GP) Absorb(x [][]float64, y []float64) {
+	// Set the defaults
+	gp.defaults()
+
 	// Covariance matrix
 	K := mat.NewSymDense(len(x), nil)
-	kargs := make([]float64, NParam+2*NDim)
-	nkargs := make([]float64, NNoiseParam+NDim)
+	kargs := make([]float64, gp.NParam+2*gp.NDim)
+	nkargs := make([]float64, gp.NNoiseParam+gp.NDim)
 	copy(kargs, gp.Theta)
-	copy(nkargs, gp.ThetaNoise)
+	copy(nkargs, gp.NoiseTheta)
 	for i := 0; i != len(x); i++ {
 		copy(kargs[gp.NParam:], x[i])
 		copy(nkargs[gp.NNoiseParam:], x[i])
@@ -28,7 +44,7 @@ func (gp GP) Absorb(x [][]float64, y []float64) {
 		k := gp.Kernel.Observe(kargs)
 		n := gp.NoiseKernel.Observe(nkargs)
 		// TODO: gradient
-		K.Set(i, i, k+n)
+		K.SetSym(i, i, k+n)
 
 		// Off-diagonal, symmetric
 		for j := i + 1; i != len(x); j++ {
@@ -40,11 +56,14 @@ func (gp GP) Absorb(x [][]float64, y []float64) {
 	}
 
 	var L mat.Cholesky
+	L.Factorize(K)
 	// TODO
+
 }
 
 // Produce computes predictions
 func (gp GP) Produce(x [][]float64) (mu, sigma []float64) {
+	return
 }
 
 // Observe and Gradient implement Infergo's ElementalModel.
