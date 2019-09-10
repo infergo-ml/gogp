@@ -28,7 +28,6 @@ const nonoise = 1E-10
 func (gp *GP) defaults() {
 	if gp.NoiseKernel == nil {
 		gp.NoiseKernel = kernel.ConstantNoise(nonoise)
-		gp.NoiseTheta = make([]float64, 0)
 	}
 
 	// We cannot risk running kernels in parallel with elemental
@@ -49,6 +48,11 @@ func (gp *GP) defaults() {
 func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Set the defaults
 	gp.defaults()
+
+	if len(x) == 0 {
+		// No observations
+		return nil
+	}
 
 	// Remember the input coordinates for computing covariances
 	// with predictions
