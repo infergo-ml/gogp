@@ -15,7 +15,7 @@ type GP struct {
 	Parallel                  bool      // parallelize covariances
 
 	// Cached computations
-	x	  [][]float64
+	x     [][]float64
 	l     mat.Cholesky
 	alpha *mat.VecDense
 }
@@ -89,6 +89,8 @@ func (gp GP) Produce(x [][]float64) (
 	mu, sigma []float64,
 	err error,
 ) {
+	// TODO: from prior?
+
 	Kstar := mat.NewDense(len(gp.x), len(x), nil)
 	if gp.Parallel {
 		//TODO
