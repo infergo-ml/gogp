@@ -25,15 +25,28 @@ type GP struct {
 // kernel.
 const nonoise = 1E-10
 
-func (gp GP) defaults() {
+func (gp *GP) defaults() {
 	if gp.NoiseKernel == nil {
 		gp.NoiseKernel = kernel.ConstantNoise(nonoise)
 		gp.NoiseTheta = make([]float64, 0)
 	}
+
+	// We cannot risk running kernels in parallel with elemental
+	// models; this should be a rare case anyway.
+	if gp.Parallel {
+		_, isElemental := gp.Kernel.(ElementalModel)
+		if isElemental {
+			gp.Parallel = false
+		}
+		_, isElemental = gp.NoiseKernel.(ElementalModel)
+		if isElemental {
+			gp.Parallel = false
+		}
+	}
 }
 
 // Absorb absorbs observations into the process
-func (gp GP) Absorb(x [][]float64, y []float64) (err error) {
+func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Set the defaults
 	gp.defaults()
 
@@ -45,6 +58,7 @@ func (gp GP) Absorb(x [][]float64, y []float64) (err error) {
 	K := mat.NewSymDense(len(x), nil)
 	if gp.Parallel {
 		// TODO
+		return fmt.Errorf("Parallel not implemented yet.")
 	} else {
 		kargs := make([]float64, gp.NParam+2*gp.NDim)
 		nkargs := make([]float64, gp.NNoiseParam+gp.NDim)
@@ -57,15 +71,21 @@ func (gp GP) Absorb(x [][]float64, y []float64) (err error) {
 			// Diagonal, includes the noise
 			copy(kargs[gp.NParam+gp.NDim:], x[i])
 			k := gp.Kernel.Observe(kargs)
+			kgrad := Gradient(gp.Kernel)
 			n := gp.NoiseKernel.Observe(nkargs)
-			// TODO: gradient
+			ngrad := Gradient(gp.NoiseKernel)
+			// TODO: collect gradients
+			kgrad = kgrad
+			ngrad = ngrad
 			K.SetSym(i, i, k+n)
 
 			// Off-diagonal, symmetric
-			for j := i + 1; i != len(x); j++ {
+			for j := i + 1; j != len(x); j++ {
 				copy(kargs[gp.NParam+gp.NDim:], x[j])
 				k := gp.Kernel.Observe(kargs)
-				// TODO: gradient
+				kgrad := Gradient(gp.Kernel)
+				// TODO: collect gradients
+				kgrad = kgrad
 				K.SetSym(i, j, k)
 			}
 		}
@@ -85,59 +105,78 @@ func (gp GP) Absorb(x [][]float64, y []float64) (err error) {
 }
 
 // Produce computes predictions
-func (gp GP) Produce(x [][]float64) (
+func (gp *GP) Produce(x [][]float64) (
 	mu, sigma []float64,
 	err error,
 ) {
-	// TODO: from prior?
+	// Set the defaults
+	gp.defaults()
 
-	Kstar := mat.NewDense(len(gp.x), len(x), nil)
-	if gp.Parallel {
-		//TODO
-	} else {
-		kargs := make([]float64, gp.NParam+2*gp.NDim)
-		copy(kargs, gp.Theta)
-		for i := 0; i != len(gp.x); i++ {
-			copy(kargs[gp.NParam:], gp.x[i])
-			for j := 0; i != len(x); j++ {
-				copy(kargs[gp.NParam+gp.NDim:], x[j])
-				k := gp.Kernel.Observe(kargs)
-				// TODO: drop gradient
-				Kstar.Set(i, j, k)
-			}
-		}
-	}
-
-	var mean mat.VecDense
-	mean.MulVec(Kstar, gp.alpha)
-	mu = mean.RawVector().Data
-
+	mean := mat.NewVecDense(len(x), nil)
 	variance := mat.NewVecDense(len(x), nil)
+	covariance := mat.NewDense(len(x), len(x), nil)
+
+	// Prior variance does not depend on observations
 	if gp.Parallel {
 		// TODO
+		return nil, nil,
+			fmt.Errorf("Parallel not implemented yet.")
 	} else {
 		kargs := make([]float64, gp.NParam+2*gp.NDim)
 		copy(kargs, gp.Theta)
 		for i := 0; i != len(x); i++ {
-			copy(kargs[gp.NParam:], gp.x[i])
-			copy(kargs[gp.NParam+gp.NDim:], gp.x[i])
+			copy(kargs[gp.NParam:], x[i])
+			copy(kargs[gp.NParam+gp.NDim:], x[i])
 			k := gp.Kernel.Observe(kargs)
-			// TODO: drop gradient
+			DropGradient(gp.Kernel)
 			variance.SetVec(i, k)
 		}
 	}
 
-	v := mat.NewDense(len(gp.x), len(x), nil)
-	if err := gp.l.SolveTo(v, Kstar); err != nil {
-		return nil, nil, err
-	}
-	covariance := mat.NewDense(len(x), len(x), nil)
-	covariance.Mul(Kstar.T(), v)
+	// Mean and covariance are computed from observations
+	// if available
+	if len(gp.x) > 0 {
+		Kstar := mat.NewDense(len(gp.x), len(x), nil)
+		if gp.Parallel {
+			// TODO
+			return nil, nil,
+				fmt.Errorf("Parallel not implemented yet.")
+		} else {
+			kargs := make([]float64, gp.NParam+2*gp.NDim)
+			copy(kargs, gp.Theta)
+			for i := 0; i != len(gp.x); i++ {
+				copy(kargs[gp.NParam:], gp.x[i])
+				for j := 0; j != len(x); j++ {
+					copy(kargs[gp.NParam+gp.NDim:], x[j])
+					k := gp.Kernel.Observe(kargs)
+					DropGradient(gp.Kernel)
+					Kstar.Set(i, j, k)
+				}
+			}
+		}
 
-	// TODO: find an idiomatic way to write this
-	sigma = variance.RawVector().Data
+		mean.MulVec(Kstar.T(), gp.alpha)
+
+		v := mat.NewDense(len(gp.x), len(x), nil)
+		if err := gp.l.SolveTo(v, Kstar); err != nil {
+			return nil, nil, err
+		}
+		covariance = mat.NewDense(len(x), len(x), nil)
+		covariance.Mul(Kstar.T(), v)
+	} else {
+		// No observations
+		mean.Zero()
+		covariance.Zero()
+	}
+
+	mu = make([]float64, len(x))
+	for i := range mu {
+		mu[i] = mean.AtVec(i)
+	}
+
+	sigma = make([]float64, len(x))
 	for i := range sigma {
-		sigma[i] = math.Sqrt(sigma[i] - covariance.At(i, i))
+		sigma[i] = math.Sqrt(variance.AtVec(i) - covariance.At(i, i))
 	}
 
 	return mu, sigma, nil
@@ -150,13 +189,13 @@ func (gp GP) Produce(x [][]float64) (
 // Observe computes log-likelihood of the parameters given the data
 // (GPML:5.8):
 //   L = −½ log|Σ| − ½ y^⊤ Σ^−1 y − n/2 log(2π)
-func (gp GP) Observe(x []float64) float64 {
+func (gp *GP) Observe(x []float64) float64 {
 	return 0.
 }
 
 // gradll computes the gradient of the log-likelihood with respect
 // to the parameters and the input data locations (GPML:5.9):
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
-func (gp GP) Gradient() []float64 {
+func (gp *GP) Gradient() []float64 {
 	return []float64{}
 }
