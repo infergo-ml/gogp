@@ -10,7 +10,7 @@ import (
 )
 
 type GP struct {
-	NParam, NNoiseParam, NDim int       // dimensions
+	NTheta, NNoiseTheta, NDim int       // dimensions
 	Kernel, NoiseKernel       Model     // kernel
 	Theta, NoiseTheta         []float64 // kernel parameters
 	Parallel                  bool      // parallelize covariances
@@ -52,6 +52,21 @@ func (gp *GP) defaults() {
 	}
 }
 
+// addTodK adds gradient components to the corresponding elements of
+// dK.
+func (gp *GP) addTodK(
+	i, j int, 
+	ipar0, jpar0 int,
+	narg int,
+	grad []float64) {
+	jpar := jpar0
+	for ipar := ipar0; ipar != ipar0+narg; ipar++ {
+		gp.dK[ipar].SetSym(i, j, gp.dK[ipar].At(i, j)+
+			grad[jpar])
+		jpar++
+	}
+}
+
 // Absorb absorbs observations into the process
 func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Set the defaults
@@ -71,7 +86,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 
 	// K's gradient by parameters and inputs
 	gp.dK = make([]*mat.SymDense,
-		gp.NParam+gp.NNoiseParam+gp.NDim*len(x))
+		gp.NTheta+gp.NNoiseTheta+gp.NDim*len(x))
 	for i := range gp.dK {
 		gp.dK[i] = mat.NewSymDense(len(x), nil)
 		gp.dK[i].Zero()
@@ -81,74 +96,60 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		// TODO
 		return fmt.Errorf("Parallel not implemented yet.")
 	} else {
-		kargs := make([]float64, gp.NParam+2*gp.NDim)
-		nkargs := make([]float64, gp.NNoiseParam+gp.NDim)
+		kargs := make([]float64, gp.NTheta+2*gp.NDim)
+		nkargs := make([]float64, gp.NNoiseTheta+gp.NDim)
 		copy(kargs, gp.Theta)
 		copy(nkargs, gp.NoiseTheta)
 		for i := 0; i != len(x); i++ {
-			copy(kargs[gp.NParam:], x[i])
-			copy(nkargs[gp.NNoiseParam:], x[i])
-
 			// Diagonal, includes the noise
-			copy(kargs[gp.NParam+gp.NDim:], x[i])
+			copy(kargs[gp.NTheta:], x[i])
+			copy(kargs[gp.NTheta+gp.NDim:], x[i])
+			copy(nkargs[gp.NNoiseTheta:], x[i])
+
 			k := gp.Kernel.Observe(kargs)
 			kgrad := Gradient(gp.Kernel)
-			// Collect the gradient
-			jarg := 0
-			for iarg := 0; iarg != gp.NParam; iarg++ {
-				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
-					kgrad[jarg])
-				jarg++
-			}
-			for iarg := gp.NParam + gp.NNoiseParam + i*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(i+1)*gp.NDim; iarg++ {
-				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
-					kgrad[jarg])
-				jarg++
-			}
-			for iarg := gp.NParam + gp.NNoiseParam + i*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(i+1)*gp.NDim; iarg++ {
-				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
-					kgrad[jarg])
-				jarg++
-			}
+			gp.addTodK(i, i, 0, 0, gp.NTheta, kgrad)
+			gp.addTodK(i, i,
+				gp.NTheta+gp.NNoiseTheta+i*gp.NDim,
+				gp.NTheta,
+				gp.NDim,
+				kgrad)
+			// We add to the same components twice,
+			// and for stationary kernels the derivatives
+			// cancel each other.
+			gp.addTodK(i, i,
+				gp.NTheta+gp.NNoiseTheta+i*gp.NDim,
+				gp.NTheta+gp.NDim,
+				gp.NDim,
+				kgrad)
 
 			n := gp.NoiseKernel.Observe(nkargs)
 			ngrad := Gradient(gp.NoiseKernel)
-			// Collect the gradient
-			jarg = 0
-			for iarg := gp.NParam; iarg != gp.NParam+gp.NNoiseParam; iarg++ {
-				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
-					ngrad[jarg])
-				jarg++
-			}
-			for iarg := gp.NParam + gp.NNoiseParam + i*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(i+1)*gp.NDim; iarg++ {
-				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
-					ngrad[jarg])
-				jarg++
-			}
+			gp.addTodK(i, i, gp.NTheta, 0, gp.NNoiseTheta, ngrad)
+			gp.addTodK(i, i,
+				gp.NTheta+gp.NNoiseTheta+i*gp.NDim,
+				gp.NNoiseTheta,
+				gp.NDim,
+				ngrad)
 
 			K.SetSym(i, i, k+n)
 
 			// Off-diagonal, symmetric
 			for j := i + 1; j != len(x); j++ {
-				copy(kargs[gp.NParam+gp.NDim:], x[j])
+				copy(kargs[gp.NTheta+gp.NDim:], x[j])
 				k := gp.Kernel.Observe(kargs)
 				kgrad := Gradient(gp.Kernel)
-				jarg = 0
-				for iarg := 0; iarg != gp.NParam; iarg++ {
-					gp.dK[iarg].SetSym(i, j, gp.dK[iarg].At(i, j)+
-						kgrad[jarg])
-					jarg++
-				}
-				for iarg := gp.NParam + gp.NNoiseParam + i*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(i+1)*gp.NDim; iarg++ {
-					gp.dK[iarg].SetSym(i, j, gp.dK[iarg].At(i, j)+
-						kgrad[jarg])
-					jarg++
-				}
-				for iarg := gp.NParam + gp.NNoiseParam + j*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(j+1)*gp.NDim; iarg++ {
-					gp.dK[iarg].SetSym(i, j, gp.dK[iarg].At(i, j)+
-						kgrad[jarg])
-					jarg++
-				}
+				gp.addTodK(i, j, 0, 0, gp.NTheta, kgrad)
+				gp.addTodK(i, j,
+					gp.NTheta+gp.NNoiseTheta+i*gp.NDim,
+					gp.NTheta,
+					gp.NDim,
+					kgrad)
+				gp.addTodK(i, i,
+					gp.NTheta+gp.NNoiseTheta+j*gp.NDim,
+					gp.NTheta+gp.NDim,
+					gp.NDim,
+					kgrad)
 
 				K.SetSym(i, j, k)
 			}
@@ -186,11 +187,11 @@ func (gp *GP) Produce(x [][]float64) (
 		return nil, nil,
 			fmt.Errorf("Parallel not implemented yet.")
 	} else {
-		kargs := make([]float64, gp.NParam+2*gp.NDim)
+		kargs := make([]float64, gp.NTheta+2*gp.NDim)
 		copy(kargs, gp.Theta)
 		for i := 0; i != len(x); i++ {
-			copy(kargs[gp.NParam:], x[i])
-			copy(kargs[gp.NParam+gp.NDim:], x[i])
+			copy(kargs[gp.NTheta:], x[i])
+			copy(kargs[gp.NTheta+gp.NDim:], x[i])
 			k := gp.Kernel.Observe(kargs)
 			DropGradient(gp.Kernel)
 			variance.SetVec(i, k)
@@ -206,12 +207,12 @@ func (gp *GP) Produce(x [][]float64) (
 			return nil, nil,
 				fmt.Errorf("Parallel not implemented yet.")
 		} else {
-			kargs := make([]float64, gp.NParam+2*gp.NDim)
+			kargs := make([]float64, gp.NTheta+2*gp.NDim)
 			copy(kargs, gp.Theta)
 			for i := 0; i != len(gp.x); i++ {
-				copy(kargs[gp.NParam:], gp.x[i])
+				copy(kargs[gp.NTheta:], gp.x[i])
 				for j := 0; j != len(x); j++ {
-					copy(kargs[gp.NParam+gp.NDim:], x[j])
+					copy(kargs[gp.NTheta+gp.NDim:], x[j])
 					k := gp.Kernel.Observe(kargs)
 					DropGradient(gp.Kernel)
 					Kstar.Set(i, j, k)

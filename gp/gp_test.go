@@ -18,7 +18,7 @@ func TestProduce(t *testing.T) {
 		{
 			name: "prior",
 			gp: &GP{
-				NParam:      1,
+				NTheta:      1,
 				NDim:        1,
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0),
@@ -33,7 +33,7 @@ func TestProduce(t *testing.T) {
 		{
 			name: "1 self",
 			gp: &GP{
-				NParam:      1,
+				NTheta:      1,
 				NDim:        1,
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0),
@@ -48,7 +48,7 @@ func TestProduce(t *testing.T) {
 		{
 			name: "two selves",
 			gp: &GP{
-				NParam:      1,
+				NTheta:      1,
 				NDim:        1,
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0),
@@ -63,7 +63,7 @@ func TestProduce(t *testing.T) {
 		{
 			name: "inter",
 			gp: &GP{
-				NParam:      1,
+				NTheta:      1,
 				NDim:        1,
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0),
@@ -78,7 +78,7 @@ func TestProduce(t *testing.T) {
 		{
 			name: "extra",
 			gp: &GP{
-				NParam:      1,
+				NTheta:      1,
 				NDim:        1,
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0),
@@ -93,7 +93,7 @@ func TestProduce(t *testing.T) {
 		{
 			name: "noise",
 			gp: &GP{
-				NParam:      1,
+				NTheta:      1,
 				NDim:        1,
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0.1),
