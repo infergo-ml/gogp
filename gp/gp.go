@@ -2,6 +2,7 @@ package gp
 
 import (
 	"bitbucket.org/dtolpin/gogp/kernel/ad"
+	"bitbucket.org/dtolpin/infergo/ad"
 	. "bitbucket.org/dtolpin/infergo/model"
 	"fmt"
 	"gonum.org/v1/gonum/mat"
@@ -15,9 +16,10 @@ type GP struct {
 	Parallel                  bool      // parallelize covariances
 
 	// Cached computations
-	x     [][]float64
-	l     mat.Cholesky
-	alpha *mat.VecDense
+	x     [][]float64     // inputs, for computing covariances
+	l     mat.Cholesky    // Cholesky decomposition of K
+	alpha *mat.VecDense   // K^-1 y
+	dK    []*mat.SymDense // gradient of K
 }
 
 // Default noise, present for numerical stability; can
@@ -30,9 +32,15 @@ func (gp *GP) defaults() {
 		gp.NoiseKernel = kernel.ConstantNoise(nonoise)
 	}
 
-	// We cannot risk running kernels in parallel with elemental
-	// models; this should be a rare case anyway.
 	if gp.Parallel {
+		// If multithreading-safe mode is not on, it makes
+		// little sense to parallelize running the kernels.
+		if !ad.IsMTSafe() {
+			gp.Parallel = false
+		}
+
+		// We cannot risk running kernels in parallel with elemental
+		// models; this should be a rare case anyway.
 		_, isElemental := gp.Kernel.(ElementalModel)
 		if isElemental {
 			gp.Parallel = false
@@ -60,6 +68,15 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 
 	// Covariance matrix
 	K := mat.NewSymDense(len(x), nil)
+
+	// K's gradient by parameters and inputs
+	gp.dK = make([]*mat.SymDense,
+		gp.NParam+gp.NNoiseParam+gp.NDim*len(x))
+	for i := range gp.dK {
+		gp.dK[i] = mat.NewSymDense(len(x), nil)
+		gp.dK[i].Zero()
+	}
+
 	if gp.Parallel {
 		// TODO
 		return fmt.Errorf("Parallel not implemented yet.")
@@ -76,11 +93,39 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 			copy(kargs[gp.NParam+gp.NDim:], x[i])
 			k := gp.Kernel.Observe(kargs)
 			kgrad := Gradient(gp.Kernel)
+			// Collect the gradient
+			jarg := 0
+			for iarg := 0; iarg != gp.NParam; iarg++ {
+				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
+					kgrad[jarg])
+				jarg++
+			}
+			for iarg := gp.NParam + gp.NNoiseParam + i*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(i+1)*gp.NDim; iarg++ {
+				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
+					kgrad[jarg])
+				jarg++
+			}
+			for iarg := gp.NParam + gp.NNoiseParam + i*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(i+1)*gp.NDim; iarg++ {
+				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
+					kgrad[jarg])
+				jarg++
+			}
+
 			n := gp.NoiseKernel.Observe(nkargs)
 			ngrad := Gradient(gp.NoiseKernel)
-			// TODO: collect gradients
-			kgrad = kgrad
-			ngrad = ngrad
+			// Collect the gradient
+			jarg = 0
+			for iarg := gp.NParam; iarg != gp.NParam+gp.NNoiseParam; iarg++ {
+				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
+					ngrad[jarg])
+				jarg++
+			}
+			for iarg := gp.NParam + gp.NNoiseParam + i*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(i+1)*gp.NDim; iarg++ {
+				gp.dK[iarg].SetSym(i, i, gp.dK[iarg].At(i, i)+
+					ngrad[jarg])
+				jarg++
+			}
+
 			K.SetSym(i, i, k+n)
 
 			// Off-diagonal, symmetric
@@ -88,8 +133,23 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 				copy(kargs[gp.NParam+gp.NDim:], x[j])
 				k := gp.Kernel.Observe(kargs)
 				kgrad := Gradient(gp.Kernel)
-				// TODO: collect gradients
-				kgrad = kgrad
+				jarg = 0
+				for iarg := 0; iarg != gp.NParam; iarg++ {
+					gp.dK[iarg].SetSym(i, j, gp.dK[iarg].At(i, j)+
+						kgrad[jarg])
+					jarg++
+				}
+				for iarg := gp.NParam + gp.NNoiseParam + i*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(i+1)*gp.NDim; iarg++ {
+					gp.dK[iarg].SetSym(i, j, gp.dK[iarg].At(i, j)+
+						kgrad[jarg])
+					jarg++
+				}
+				for iarg := gp.NParam + gp.NNoiseParam + j*gp.NDim; iarg != gp.NParam+gp.NNoiseParam+(j+1)*gp.NDim; iarg++ {
+					gp.dK[iarg].SetSym(i, j, gp.dK[iarg].At(i, j)+
+						kgrad[jarg])
+					jarg++
+				}
+
 				K.SetSym(i, j, k)
 			}
 		}
