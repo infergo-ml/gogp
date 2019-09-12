@@ -55,7 +55,7 @@ func (gp *GP) defaults() {
 // addTodK adds gradient components to the corresponding elements of
 // dK.
 func (gp *GP) addTodK(
-	i, j int, 
+	i, j int,
 	ipar0, jpar0 int,
 	narg int,
 	grad []float64) {
@@ -253,14 +253,25 @@ func (gp *GP) Produce(x [][]float64) (
 
 // Observe computes log-likelihood of the parameters given the data
 // (GPML:5.8):
-//   L = −½ log|Σ| − ½ y^⊤ Σ^−1 y − n/2 log(2π)
-func (gp *GP) Observe(x []float64) float64 {
+//   L = −½ log|Σ| − ½ y^⊤ α − n/2 log(2π), where α = Σ^-1 y
+func (gp *GP) Observe(x_ []float64) float64 {
 	// Destructure
+	gp.Theta = Shift(&x_, gp.NTheta)
+	gp.NoiseTheta = Shift(&x_, gp.NNoiseTheta)
+	n := len(x_) / (gp.NDim + 1)
+	x := make([][]float64, n)
+	for i := range x {
+		x[i] = Shift(&x_, gp.NDim)
+	}
+	y := x_[len(x_) - n:]
 
-	// Absorb
+	gp.Absorb(x, y)
 
 	// Compute L
-	return 0.
+	ll := -float64(n)*math.Log(2*math.Pi)
+	ll -= 0.5*gp.l.LogDet()
+	ll -= 0.5*mat.Dot(mat.NewVecDense(n, y), gp.alpha)
+	return ll
 }
 
 // gradll computes the gradient of the log-likelihood with respect
@@ -269,7 +280,20 @@ func (gp *GP) Observe(x []float64) float64 {
 func (gp *GP) Gradient() []float64 {
 	grad := make([]float64, len(gp.dK))
 	for i := range gp.dK {
-		grad[i] = 0.
+		// α α^⊤ ∂Σ/∂θ
+		a := mat.NewDense(len(gp.x), len(gp.x), nil)
+		a.Mul(gp.alpha, gp.alpha.T())
+		b := mat.NewDense(len(gp.x), len(gp.x), nil)
+		b.Mul(a, gp.dK[i])
+
+		// Σ^−1 ∂Σ/∂θ
+		gp.l.SolveTo(a, gp.dK[i])
+
+		// (α α^⊤ - Σ^−1) ∂Σ/∂θ
+		c := mat.NewDense(len(gp.x), len(gp.x), nil)
+		c.Sub(b, a)
+
+		grad[i] = 0.5 * mat.Trace(c)
 	}
-	return []float64{}
+	return grad
 }
