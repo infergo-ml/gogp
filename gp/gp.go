@@ -255,6 +255,11 @@ func (gp *GP) Produce(x [][]float64) (
 // (GPML:5.8):
 //   L = −½ log|Σ| − ½ y^⊤ Σ^−1 y − n/2 log(2π)
 func (gp *GP) Observe(x []float64) float64 {
+	// Destructure
+
+	// Absorb
+
+	// Compute L
 	return 0.
 }
 
@@ -262,5 +267,9 @@ func (gp *GP) Observe(x []float64) float64 {
 // to the parameters and the input data locations (GPML:5.9):
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
+	grad := make([]float64, len(gp.dK))
+	for i := range gp.dK {
+		grad[i] = 0.
+	}
 	return []float64{}
 }

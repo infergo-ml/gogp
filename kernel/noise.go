@@ -11,7 +11,7 @@ import (
 // is given.
 type ConstantNoise float64
 
-func (nk ConstantNoise) Observe([]float64) float64 {
+func (nk ConstantNoise) Observe(x []float64) float64 {
 	return float64(nk)
 }
 
