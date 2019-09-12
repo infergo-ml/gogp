@@ -94,7 +94,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 
 	if gp.Parallel {
 		// TODO
-		return fmt.Errorf("Parallel not implemented yet.")
+		panic("Parallel not implemented yet.")
 	} else {
 		kargs := make([]float64, gp.NTheta+2*gp.NDim)
 		nkargs := make([]float64, gp.NNoiseTheta+gp.NDim)
@@ -184,8 +184,7 @@ func (gp *GP) Produce(x [][]float64) (
 	// Prior variance does not depend on observations
 	if gp.Parallel {
 		// TODO
-		return nil, nil,
-			fmt.Errorf("Parallel not implemented yet.")
+		panic("Parallel not implemented yet.")
 	} else {
 		kargs := make([]float64, gp.NTheta+2*gp.NDim)
 		copy(kargs, gp.Theta)
@@ -203,9 +202,7 @@ func (gp *GP) Produce(x [][]float64) (
 	if len(gp.x) > 0 {
 		Kstar := mat.NewDense(len(gp.x), len(x), nil)
 		if gp.Parallel {
-			// TODO
-			return nil, nil,
-				fmt.Errorf("Parallel not implemented yet.")
+			panic("Parallel not implemented yet.")
 		} else {
 			kargs := make([]float64, gp.NTheta+2*gp.NDim)
 			copy(kargs, gp.Theta)
