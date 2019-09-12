@@ -32,6 +32,14 @@ func (gp *GP) defaults() {
 		gp.NoiseKernel = kernel.ConstantNoise(nonoise)
 	}
 
+	if gp.Theta == nil {
+		gp.Theta = make([]float64, gp.NTheta)
+	}
+
+	if gp.NoiseTheta == nil {
+		gp.NoiseTheta = make([]float64, gp.NNoiseTheta)
+	}
+
 	if gp.Parallel {
 		// If multithreading-safe mode is not on, it makes
 		// little sense to parallelize running the kernels.
@@ -264,8 +272,11 @@ func (gp *GP) Observe(x_ []float64) float64 {
 
 	gp.Absorb(x, y)
 
-	// Compute L
+	// Compute log-likelihood
 	ll := -float64(n)*math.Log(2*math.Pi)
+	if len(gp.x) == 0 {
+		return ll
+	}
 	ll -= 0.5*gp.l.LogDet()
 	ll -= 0.5*mat.Dot(mat.NewVecDense(n, y), gp.alpha)
 	return ll
@@ -276,6 +287,9 @@ func (gp *GP) Observe(x_ []float64) float64 {
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
 	grad := make([]float64, len(gp.dK))
+	if len(gp.x) == 0 {
+		return grad
+	}
 	for i := range gp.dK {
 		// α α^⊤ ∂Σ/∂θ
 		a := mat.NewDense(len(gp.x), len(gp.x), nil)

@@ -138,3 +138,43 @@ func TestProduce(t *testing.T) {
 		}
 	}
 }
+
+func TestElementalModel(t *testing.T) {
+	for _, c := range []struct {
+		name      string
+		gp        *GP
+		x         []float64
+		ll		  float64
+		dll       []float64
+	}{
+		{
+			name: "prior",
+			gp: &GP{
+				NTheta:      1,
+				NDim:        1,
+				Kernel:      kernel.Normal,
+				NoiseKernel: kernel.ConstantNoise(0),
+			},
+			x:     []float64{1.},
+			ll:    0.0,
+			dll:   []float64{},
+		},
+		{
+			name: "extra",
+			gp: &GP{
+				NTheta:      1,
+				NDim:        1,
+				Kernel:      kernel.Normal,
+				NoiseKernel: kernel.ConstantNoise(0),
+			},
+			x:     []float64{1, 0, 1, 1, -1},
+			ll:  0.0,
+			dll: []float64{},
+		},
+	} {
+		ll := c.gp.Observe(c.x)
+		dll := c.gp.Gradient()
+		ll = ll
+		dll = dll
+	}
+}
