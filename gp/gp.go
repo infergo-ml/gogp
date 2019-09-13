@@ -14,8 +14,11 @@ type GP struct {
 	Kernel, NoiseKernel       model.Model // kernel
 	Theta, NoiseTheta         []float64   // kernel parameters
 
+	// inputs
+	X     [][]float64     // locations, for computing covariances
+	Y     []float64       // observations
+
 	// Cached computations
-	x     [][]float64     // inputs, for computing covariances
 	l     mat.Cholesky    // Cholesky decomposition of K
 	alpha *mat.VecDense   // K^-1 y
 	dK    []*mat.SymDense // gradient of K
@@ -60,14 +63,13 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Set the defaults
 	gp.defaults()
 
+	// Remember the inputs
+	gp.X, gp.Y = x, y
+
 	if len(x) == 0 {
 		// No observations
 		return nil
 	}
-
-	// Remember the input coordinates for computing covariances
-	// with predictions
-	gp.x = x
 
 	// Covariance matrix
 	K := mat.NewSymDense(len(x), nil)
@@ -177,12 +179,12 @@ func (gp *GP) Produce(x [][]float64) (
 
 	// Mean and covariance are computed from observations
 	// if available
-	if len(gp.x) > 0 {
-		Kstar := mat.NewDense(len(gp.x), len(x), nil)
+	if len(gp.X) > 0 {
+		Kstar := mat.NewDense(len(gp.X), len(x), nil)
 		kargs := make([]float64, gp.NTheta+2*gp.NDim)
 		copy(kargs, gp.Theta)
-		for i := 0; i != len(gp.x); i++ {
-			copy(kargs[gp.NTheta:], gp.x[i])
+		for i := 0; i != len(gp.X); i++ {
+			copy(kargs[gp.NTheta:], gp.X[i])
 			for j := 0; j != len(x); j++ {
 				copy(kargs[gp.NTheta+gp.NDim:], x[j])
 				k := gp.Kernel.Observe(kargs)
@@ -193,7 +195,7 @@ func (gp *GP) Produce(x [][]float64) (
 
 		mean.MulVec(Kstar.T(), gp.alpha)
 
-		v := mat.NewDense(len(gp.x), len(x), nil)
+		v := mat.NewDense(len(gp.X), len(x), nil)
 		if err := gp.l.SolveTo(v, Kstar); err != nil {
 			return nil, nil, err
 		}
@@ -240,7 +242,7 @@ func (gp *GP) Observe(x_ []float64) float64 {
 
 	// Compute log-likelihood
 	ll := -float64(n) * math.Log(2*math.Pi)
-	if len(gp.x) == 0 {
+	if len(gp.X) == 0 {
 		return ll
 	}
 	ll -= 0.5 * gp.l.LogDet()
@@ -253,21 +255,21 @@ func (gp *GP) Observe(x_ []float64) float64 {
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
 	grad := make([]float64, len(gp.dK))
-	if len(gp.x) == 0 {
+	if len(gp.X) == 0 {
 		return grad
 	}
 	for i := range gp.dK {
 		// α α^⊤ ∂Σ/∂θ
-		a := mat.NewDense(len(gp.x), len(gp.x), nil)
+		a := mat.NewDense(len(gp.X), len(gp.X), nil)
 		a.Mul(gp.alpha, gp.alpha.T())
-		b := mat.NewDense(len(gp.x), len(gp.x), nil)
+		b := mat.NewDense(len(gp.X), len(gp.X), nil)
 		b.Mul(a, gp.dK[i])
 
 		// Σ^−1 ∂Σ/∂θ
 		gp.l.SolveTo(a, gp.dK[i])
 
 		// (α α^⊤ - Σ^−1) ∂Σ/∂θ
-		c := mat.NewDense(len(gp.x), len(gp.x), nil)
+		c := mat.NewDense(len(gp.X), len(gp.X), nil)
 		c.Sub(b, a)
 
 		grad[i] = 0.5 * mat.Trace(c)
