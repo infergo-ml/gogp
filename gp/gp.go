@@ -254,25 +254,33 @@ func (gp *GP) Observe(x_ []float64) float64 {
 // to the parameters and the input data locations (GPML:5.9):
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
-	grad := make([]float64, len(gp.dK))
+	grad := make([]float64, len(gp.dK) + len(gp.Y))
 	if len(gp.X) == 0 {
 		return grad
 	}
+
+	// Gradient by pameters and inputs
 	for i := range gp.dK {
 		// α α^⊤ ∂Σ/∂θ
-		a := mat.NewDense(len(gp.X), len(gp.X), nil)
+		a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
 		a.Mul(gp.alpha, gp.alpha.T())
-		b := mat.NewDense(len(gp.X), len(gp.X), nil)
+		b := mat.NewDense(len(gp.Y), len(gp.Y), nil)
 		b.Mul(a, gp.dK[i])
 
 		// Σ^−1 ∂Σ/∂θ
 		gp.l.SolveTo(a, gp.dK[i])
 
 		// (α α^⊤ - Σ^−1) ∂Σ/∂θ
-		c := mat.NewDense(len(gp.X), len(gp.X), nil)
+		c := mat.NewDense(len(gp.Y), len(gp.Y), nil)
 		c.Sub(b, a)
 
 		grad[i] = 0.5 * mat.Trace(c)
+	}
+
+
+	// Gradient by outputs
+	for i := range gp.Y {
+		gradp[i + len(gp.dK)] = -gp.alpha[i]
 	}
 	return grad
 }
