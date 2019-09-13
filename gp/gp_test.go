@@ -141,11 +141,11 @@ func TestProduce(t *testing.T) {
 
 func TestElementalModel(t *testing.T) {
 	for _, c := range []struct {
-		name      string
-		gp        *GP
-		x         []float64
-		ll		  float64
-		dll       []float64
+		name string
+		gp   *GP
+		x    []float64
+		ll   float64
+		dll  []float64
 	}{
 		{
 			name: "prior",
@@ -155,9 +155,9 @@ func TestElementalModel(t *testing.T) {
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0),
 			},
-			x:     []float64{1.},
-			ll:    0.0,
-			dll:   []float64{},
+			x:   []float64{1.},
+			ll:  0.0,
+			dll: []float64{},
 		},
 		{
 			name: "extra",
@@ -167,7 +167,7 @@ func TestElementalModel(t *testing.T) {
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0),
 			},
-			x:     []float64{1, 0, 1, 1, -1},
+			x:   []float64{1, 0, 1, 1, -1},
 			ll:  0.0,
 			dll: []float64{},
 		},

@@ -4,7 +4,7 @@ build: kernel/ad/kernel.go
 	go build ./...
 
 test: kernel/ad/kernel.go
-	go test ./gp ./kernel
+	go test ./gp ./kernel ./gputil
 
 kernel/ad/kernel.go: kernel/kernel.go kernel/noise.go
 	deriv kernel
