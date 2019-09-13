@@ -1,0 +1,11 @@
+Fri Sep 13 12:04:21 IDT 2019
+
+Done:
+	GP and log scale
+Todo:
+    * build log scale into GP
+	* check length of x in Observe, optimize parameters or parameters
+	  and input locations.
+	 
+
+
