@@ -228,7 +228,7 @@ func (gp *GP) Produce(x [][]float64) (
 // (GPML:5.8):
 //   L = −½ log|Σ| − ½ y^⊤ α − n/2 log(2π), where α = Σ^-1 y
 // The input is contatenation of log-transformed
-// hyperparameters, input coordinates, and input values.
+// hyperparameters, input locations, and input values.
 //
 // Optionally, the input can be only log-transformed
 // hyperparameters, and then
@@ -279,8 +279,9 @@ func (gp *GP) Observe(x []float64) float64 {
 	return ll
 }
 
-// gradll computes the gradient of the log-likelihood with respect
-// to the parameters and the input data locations (GPML:5.9):
+// Gradient computes the gradient of the log-likelihood with
+// respect to the parameters and the input data locations
+// (GPML:5.9):
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
 	var (
@@ -328,7 +329,7 @@ func (gp *GP) Gradient() []float64 {
 	if withInputs {
 		// Gradient by inputs
 		for i := range gp.Y {
-			grad[i+len(gp.dK)] = -gp.alpha.AtVec(i)
+			grad[len(gp.dK) + i] = -gp.alpha.AtVec(i)
 		}
 	}
 	return grad
