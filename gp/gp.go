@@ -15,8 +15,8 @@ type GP struct {
 	Theta, NoiseTheta         []float64   // kernel parameters
 
 	// inputs
-	X     [][]float64     // locations, for computing covariances
-	Y     []float64       // observations
+	X [][]float64 // locations, for computing covariances
+	Y []float64   // observations
 
 	// Cached computations
 	l     mat.Cholesky    // Cholesky decomposition of K
@@ -221,32 +221,61 @@ func (gp *GP) Produce(x [][]float64) (
 }
 
 // Observe and Gradient implement Infergo's ElementalModel.
-// The model can be used, on its own or as a part of a larger
+// The model can be used on its own or as a part of a larger
 // model, to infer the parameters.
 
 // Observe computes log-likelihood of the parameters given the data
 // (GPML:5.8):
 //   L = −½ log|Σ| − ½ y^⊤ α − n/2 log(2π), where α = Σ^-1 y
-func (gp *GP) Observe(x_ []float64) float64 {
-	// Destructure
-	gp.Theta = model.Shift(&x_, gp.NTheta)
-	gp.NoiseTheta = model.Shift(&x_, gp.NNoiseTheta)
-	n := len(x_) / (gp.NDim + 1)
-	x := make([][]float64, n)
-	for i := range x {
-		x[i] = model.Shift(&x_, gp.NDim)
+// The input is contatenation of log-transformed
+// hyperparameters, input coordinates, and input values.
+//
+// Optionally, the input can be only log-transformed
+// hyperparameters, and then
+// * only hyperparameters are inferred;
+// * inputs must be assigned to fields X, Y of gp.
+func (gp *GP) Observe(x []float64) float64 {
+	// Transform
+	for i := 0; i != gp.NTheta+gp.NNoiseTheta; i++ {
+		x[i] = math.Exp(x[i])
 	}
-	y := x_[len(x_)-n:]
 
-	gp.Absorb(x, y)
+	// Destructure
+	gp.Theta = model.Shift(&x, gp.NTheta)
+	gp.NoiseTheta = model.Shift(&x, gp.NNoiseTheta)
+	withInputs := len(x) > 0
+	if withInputs {
+		// Inputs are inferred as well as parameters,
+		// normally as a part of a larger model with priors
+		// on inputs.
+		n := len(x) / (gp.NDim + 1)
+		gp.X = make([][]float64, n)
+		for i := range x {
+			gp.X[i] = model.Shift(&x, gp.NDim)
+		}
+		gp.Y = model.Shift(&x, n)
+	}
+	if len(x) != 0 {
+		panic("len(x)")
+	}
+
+	gp.Absorb(gp.X, gp.Y)
+	if !withInputs {
+		gp.dK = gp.dK[:gp.NTheta+gp.NNoiseTheta]
+	}
+
+	// Restore
+	for i := 0; i != gp.NTheta+gp.NNoiseTheta; i++ {
+		x[i] = math.Log(x[i])
+	}
 
 	// Compute log-likelihood
-	ll := -float64(n) * math.Log(2*math.Pi)
+	ll := -float64(len(gp.X)) * math.Log(2*math.Pi)
 	if len(gp.X) == 0 {
 		return ll
 	}
 	ll -= 0.5 * gp.l.LogDet()
-	ll -= 0.5 * mat.Dot(mat.NewVecDense(n, y), gp.alpha)
+	ll -= 0.5 * mat.Dot(mat.NewVecDense(len(gp.Y), gp.Y), gp.alpha)
 	return ll
 }
 
@@ -254,12 +283,31 @@ func (gp *GP) Observe(x_ []float64) float64 {
 // to the parameters and the input data locations (GPML:5.9):
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
-	grad := make([]float64, len(gp.dK) + len(gp.Y))
+	var (
+		grad       []float64
+		withInputs bool
+	)
+	switch {
+	case len(gp.dK) == gp.NTheta+gp.NNoiseTheta:
+		// optimizimg hyperparameters only
+		grad = make([]float64, gp.NTheta+gp.NNoiseTheta)
+	case len(gp.dK) == gp.NTheta+
+		gp.NNoiseTheta+
+		len(gp.X)*gp.NDim:
+		// optimizing everything
+		grad = make([]float64,
+			gp.NTheta+gp.NNoiseTheta+
+				len(gp.X)*(gp.NDim+1))
+		withInputs = true
+	default:
+		panic("len(gp.dK)")
+	}
+
 	if len(gp.X) == 0 {
 		return grad
 	}
 
-	// Gradient by pameters and inputs
+	// Gradient by parameters (and possibly input locations)
 	for i := range gp.dK {
 		// α α^⊤ ∂Σ/∂θ
 		a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
@@ -277,10 +325,11 @@ func (gp *GP) Gradient() []float64 {
 		grad[i] = 0.5 * mat.Trace(c)
 	}
 
-
-	// Gradient by outputs
-	for i := range gp.Y {
-		gradp[i + len(gp.dK)] = -gp.alpha[i]
+	if withInputs {
+		// Gradient by inputs
+		for i := range gp.Y {
+			grad[i+len(gp.dK)] = -gp.alpha.AtVec(i)
+		}
 	}
 	return grad
 }
