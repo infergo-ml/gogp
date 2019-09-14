@@ -65,6 +65,9 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 
 	// Remember the inputs
 	gp.X, gp.Y = x, y
+	// K's gradient by parameters and inputs
+	gp.dK = make([]*mat.SymDense,
+		gp.NTheta+gp.NNoiseTheta+gp.NDim*len(x))
 
 	if len(x) == 0 {
 		// No observations
@@ -74,14 +77,10 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Covariance matrix
 	K := mat.NewSymDense(len(x), nil)
 
-	// K's gradient by parameters and inputs
-	gp.dK = make([]*mat.SymDense,
-		gp.NTheta+gp.NNoiseTheta+gp.NDim*len(x))
 	for i := range gp.dK {
 		gp.dK[i] = mat.NewSymDense(len(x), nil)
 		gp.dK[i].Zero()
 	}
-
 	kargs := make([]float64, gp.NTheta+2*gp.NDim)
 	nkargs := make([]float64, gp.NNoiseTheta+gp.NDim)
 	copy(kargs, gp.Theta)
@@ -241,21 +240,23 @@ func (gp *GP) Observe(x []float64) float64 {
 	}
 
 	// Destructure
-	gp.Theta = model.Shift(&x, gp.NTheta)
-	gp.NoiseTheta = model.Shift(&x, gp.NNoiseTheta)
-	withInputs := len(x) > 0
+	x_ := x
+	gp.Theta = model.Shift(&x_, gp.NTheta)
+	gp.NoiseTheta = model.Shift(&x_, gp.NNoiseTheta)
+	withInputs := len(x_) > 0
 	if withInputs {
 		// Inputs are inferred as well as parameters,
 		// normally as a part of a larger model with priors
 		// on inputs.
-		n := len(x) / (gp.NDim + 1)
+		n := len(x_) / (gp.NDim + 1)
 		gp.X = make([][]float64, n)
-		for i := range x {
-			gp.X[i] = model.Shift(&x, gp.NDim)
+		for i := range gp.X {
+			fmt.Printf("%v %v %v\n", i, x, x_)
+			gp.X[i] = model.Shift(&x_, gp.NDim)
 		}
-		gp.Y = model.Shift(&x, n)
+		gp.Y = model.Shift(&x_, n)
 	}
-	if len(x) != 0 {
+	if len(x_) != 0 {
 		panic("len(x)")
 	}
 
@@ -266,11 +267,12 @@ func (gp *GP) Observe(x []float64) float64 {
 
 	// Restore
 	for i := 0; i != gp.NTheta+gp.NNoiseTheta; i++ {
+		fmt.Printf("%v %v\n", i, x)
 		x[i] = math.Log(x[i])
 	}
 
 	// Compute log-likelihood
-	ll := -float64(len(gp.X)) * math.Log(2*math.Pi)
+	ll := -0.5 * float64(len(gp.X)) * math.Log(2*math.Pi)
 	if len(gp.X) == 0 {
 		return ll
 	}
@@ -329,7 +331,7 @@ func (gp *GP) Gradient() []float64 {
 	if withInputs {
 		// Gradient by inputs
 		for i := range gp.Y {
-			grad[len(gp.dK) + i] = -gp.alpha.AtVec(i)
+			grad[len(gp.dK)+i] = -gp.alpha.AtVec(i)
 		}
 	}
 	return grad
