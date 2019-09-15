@@ -179,11 +179,11 @@ func TestElementalModel(t *testing.T) {
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0),
 			},
-			x:   []float64{0, 0, 1, 1, 0},
-			ll:  -2.399528,
+			x:  []float64{0, 0, 1, 1, 0},
+			ll: -2.399528,
 			dll: []float64{-0.338697,
-						   0, 0,
-						   -1.581977, 0.959517},
+				-0.338697, 0.338697,
+				-1.581977, 0.959517},
 		},
 		{
 			name: "withnoise",
@@ -193,16 +193,16 @@ func TestElementalModel(t *testing.T) {
 				Kernel:      kernel.Normal,
 				NoiseKernel: kernel.ConstantNoise(0.1),
 			},
-			x:   []float64{0, 0, 1, 1, 0},
-			ll:  -2.405074,
+			x:  []float64{0, -2, -1, 1, 0},
+			ll: -2.405074,
 			dll: []float64{-0.133775,
-							0, 0,
-						   -1.306226, 0.720242},
+				-0.133775, 0.133775,
+				-1.306226, 0.720242},
 		},
 	} {
 		ll := c.gp.Observe(c.x)
 		dll := c.gp.Gradient()
-		if math.Abs(ll - c.ll) >= 1E-6 {
+		if math.Abs(ll-c.ll) >= 1E-6 {
 			t.Errorf("%s: wrong log-likelihood: got %f, want %f",
 				c.name, ll, c.ll)
 		}
@@ -212,7 +212,7 @@ func TestElementalModel(t *testing.T) {
 			continue
 		}
 		for i := range dll {
-			if math.Abs(dll[i] - c.dll[i]) >= 1E-6 {
+			if math.Abs(dll[i]-c.dll[i]) >= 1E-6 {
 				t.Errorf("%s: wrong gradient: got %v, want %v",
 					c.name, dll, c.dll)
 				break
@@ -220,25 +220,25 @@ func TestElementalModel(t *testing.T) {
 		}
 
 		// test Observe with hyperparameters only
-		x := c.x[:c.gp.NTheta + c.gp.NNoiseTheta]
+		x := c.x[:c.gp.NTheta+c.gp.NNoiseTheta]
 		ll = c.gp.Observe(x)
 		dll = c.gp.Gradient()
-		if math.Abs(ll - c.ll) >= 1E-6 {
-			t.Errorf("%s: wrong log-likelihood (hyperparameters only):" +
-			         " got %f, want %f", c.name, ll, c.ll)
+		if math.Abs(ll-c.ll) >= 1E-6 {
+			t.Errorf("%s: wrong log-likelihood (hyperparameters only):"+
+				" got %f, want %f", c.name, ll, c.ll)
 		}
-		if len(dll) != c.gp.NTheta + c.gp.NNoiseTheta {
-			t.Errorf("%s: wrong gradient size (hyperparameters only):" +
-			         " got %d, want %d",
-					 c.name, len(dll), c.gp.NTheta + c.gp.NNoiseTheta)
+		if len(dll) != c.gp.NTheta+c.gp.NNoiseTheta {
+			t.Errorf("%s: wrong gradient size (hyperparameters only):"+
+				" got %d, want %d",
+				c.name, len(dll), c.gp.NTheta+c.gp.NNoiseTheta)
 			continue
 		}
 		for i := range dll {
-			if math.Abs(dll[i] - c.dll[i]) >= 1E-6 {
-				t.Errorf("%s: wrong gradient (hyperparameters only):" +
-				         " got %v, want %v",
-						 c.name, dll, 
-						 c.dll[:c.gp.NTheta + c.gp.NNoiseTheta])
+			if math.Abs(dll[i]-c.dll[i]) >= 1E-6 {
+				t.Errorf("%s: wrong gradient (hyperparameters only):"+
+					" got %v, want %v",
+					c.name, dll,
+					c.dll[:c.gp.NTheta+c.gp.NNoiseTheta])
 				break
 			}
 		}

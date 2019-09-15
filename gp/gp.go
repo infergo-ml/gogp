@@ -86,41 +86,8 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	copy(kargs, gp.Theta)
 	copy(nkargs, gp.NoiseTheta)
 	for i := 0; i != len(x); i++ {
-		// Diagonal, includes the noise
 		copy(kargs[gp.NTheta:], x[i])
-		copy(kargs[gp.NTheta+gp.NDim:], x[i])
-		copy(nkargs[gp.NNoiseTheta:], x[i])
-
-		k := gp.Kernel.Observe(kargs)
-		kgrad := model.Gradient(gp.Kernel)
-		gp.addTodK(i, i, 0, 0, gp.NTheta, kgrad)
-		gp.addTodK(i, i,
-			gp.NTheta+gp.NNoiseTheta+i*gp.NDim,
-			gp.NTheta,
-			gp.NDim,
-			kgrad)
-		// We add to the same components twice,
-		// and for stationary kernels the derivatives
-		// cancel each other.
-		gp.addTodK(i, i,
-			gp.NTheta+gp.NNoiseTheta+i*gp.NDim,
-			gp.NTheta+gp.NDim,
-			gp.NDim,
-			kgrad)
-
-		n := gp.NoiseKernel.Observe(nkargs)
-		ngrad := model.Gradient(gp.NoiseKernel)
-		gp.addTodK(i, i, gp.NTheta, 0, gp.NNoiseTheta, ngrad)
-		gp.addTodK(i, i,
-			gp.NTheta+gp.NNoiseTheta+i*gp.NDim,
-			gp.NNoiseTheta,
-			gp.NDim,
-			ngrad)
-
-		K.SetSym(i, i, k+n)
-
-		// Off-diagonal, symmetric
-		for j := i + 1; j != len(x); j++ {
+		for j := i; j != len(x); j++ {
 			copy(kargs[gp.NTheta+gp.NDim:], x[j])
 			k := gp.Kernel.Observe(kargs)
 			kgrad := model.Gradient(gp.Kernel)
@@ -130,12 +97,24 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 				gp.NTheta,
 				gp.NDim,
 				kgrad)
-			gp.addTodK(i, i,
+			gp.addTodK(i, j,
 				gp.NTheta+gp.NNoiseTheta+j*gp.NDim,
 				gp.NTheta+gp.NDim,
 				gp.NDim,
 				kgrad)
-
+			if j == i {
+				// Diagonal, add noise
+				copy(nkargs[gp.NNoiseTheta:], x[j])
+				n := gp.NoiseKernel.Observe(nkargs)
+				ngrad := model.Gradient(gp.NoiseKernel)
+				gp.addTodK(i, j, gp.NTheta, 0, gp.NNoiseTheta, ngrad)
+				gp.addTodK(i, j,
+					gp.NTheta+gp.NNoiseTheta+j*gp.NDim,
+					gp.NNoiseTheta,
+					gp.NDim,
+					ngrad)
+				k += n
+			}
 			K.SetSym(i, j, k)
 		}
 	}
