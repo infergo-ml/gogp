@@ -160,6 +160,18 @@ func TestElementalModel(t *testing.T) {
 			dll: []float64{0},
 		},
 		{
+			name: "single",
+			gp: &GP{
+				NTheta:      1,
+				NDim:        1,
+				Kernel:      kernel.Normal,
+				NoiseKernel: kernel.ConstantNoise(0),
+			},
+			x:   []float64{0, 0, 1},
+			ll:  -1.418939,
+			dll: []float64{-0, 0, -1},
+		},
+		{
 			name: "nonoise",
 			gp: &GP{
 				NTheta:      1,
