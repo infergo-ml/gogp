@@ -251,7 +251,6 @@ func (gp *GP) Observe(x []float64) float64 {
 		n := len(x_) / (gp.NDim + 1)
 		gp.X = make([][]float64, n)
 		for i := range gp.X {
-			fmt.Printf("%v %v %v\n", i, x, x_)
 			gp.X[i] = model.Shift(&x_, gp.NDim)
 		}
 		gp.Y = model.Shift(&x_, n)
@@ -267,15 +266,15 @@ func (gp *GP) Observe(x []float64) float64 {
 
 	// Restore
 	for i := 0; i != gp.NTheta+gp.NNoiseTheta; i++ {
-		fmt.Printf("%v %v\n", i, x)
 		x[i] = math.Log(x[i])
 	}
 
 	// Compute log-likelihood
-	ll := -0.5 * float64(len(gp.X)) * math.Log(2*math.Pi)
+	ll := 0.
 	if len(gp.X) == 0 {
 		return ll
 	}
+	ll -= 0.5 * float64(len(gp.X)) * math.Log(2*math.Pi)
 	ll -= 0.5 * gp.l.LogDet()
 	ll -= 0.5 * mat.Dot(mat.NewVecDense(len(gp.Y), gp.Y), gp.alpha)
 	return ll
