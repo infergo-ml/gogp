@@ -58,7 +58,7 @@ func (gp *GP) addTodK(
 	}
 }
 
-// Absorb absorbs observations into the process
+// Absorb absorbs observations into the process.
 func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Set the defaults
 	gp.defaults()
@@ -132,7 +132,21 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	return
 }
 
-// Produce computes predictions
+// LML computes log marginal likelihood of the kernel given the
+// absorbed observations (GPML:5.8):
+//   L = −½ log|Σ| − ½ y^⊤ α − n/2 log(2π), where α = Σ^-1 y
+func (gp *GP) LML() float64 {
+	lml := 0.
+	if len(gp.X) == 0 {
+		return lml
+	}
+	lml -= 0.5 * float64(len(gp.X)) * math.Log(2*math.Pi)
+	lml -= 0.5 * gp.l.LogDet()
+	lml -= 0.5 * mat.Dot(mat.NewVecDense(len(gp.Y), gp.Y), gp.alpha)
+	return lml
+}
+
+// Produce computes predictions.
 func (gp *GP) Produce(x [][]float64) (
 	mu, sigma []float64,
 	err error,
@@ -202,10 +216,8 @@ func (gp *GP) Produce(x [][]float64) (
 // The model can be used on its own or as a part of a larger
 // model, to infer the parameters.
 
-// Observe computes log-likelihood of the parameters given the data
-// (GPML:5.8):
-//   L = −½ log|Σ| − ½ y^⊤ α − n/2 log(2π), where α = Σ^-1 y
-// The input is contatenation of log-transformed
+// Observe computes log marginal likelihood of the parameters
+// given the data. The input is contatenation of log-transformed
 // hyperparameters, input locations, and input values.
 //
 // Optionally, the input can be only log-transformed
@@ -248,15 +260,7 @@ func (gp *GP) Observe(x []float64) float64 {
 		x[i] = math.Log(x[i])
 	}
 
-	// Compute log-likelihood
-	ll := 0.
-	if len(gp.X) == 0 {
-		return ll
-	}
-	ll -= 0.5 * float64(len(gp.X)) * math.Log(2*math.Pi)
-	ll -= 0.5 * gp.l.LogDet()
-	ll -= 0.5 * mat.Dot(mat.NewVecDense(len(gp.Y), gp.Y), gp.alpha)
-	return ll
+	return gp.LML()
 }
 
 // Gradient computes the gradient of the log-likelihood with
