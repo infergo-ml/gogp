@@ -8,8 +8,7 @@ import (
 	"math"
 )
 
-
-// Type Kernel is the kernel interface, implemented by 
+// Type Kernel is the kernel interface, implemented by
 // both covariance and noise kernels.
 type Kernel interface {
 	model.Model
@@ -18,9 +17,9 @@ type Kernel interface {
 
 // Type GP is the barebone implementation of GP.
 type GP struct {
-	NDim int         // dimensions
-	Cov, Noise Kernel      // kernel
-	ThetaCov, ThetaNoise   []float64   // kernel parameters
+	NDim                   int       // dimensions
+	Simil, Noise           Kernel    // kernel
+	ThetaSimil, ThetaNoise []float64 // kernel parameters
 
 	// inputs
 	X [][]float64 // locations, for computing covariances
@@ -42,11 +41,11 @@ func (gp *GP) defaults() {
 		gp.Noise = kernel.ConstantNoise(nonoise)
 	}
 
-	if gp.ThetaCov == nil {
-		gp.ThetaCov = make([]float64, gp.Cov.NTheta())
+	if len(gp.ThetaSimil) == 0 {
+		gp.ThetaSimil = make([]float64, gp.Simil.NTheta())
 	}
 
-	if gp.ThetaNoise == nil {
+	if len(gp.ThetaNoise) == 0 {
 		gp.ThetaNoise = make([]float64, gp.Noise.NTheta())
 	}
 }
@@ -75,49 +74,47 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	gp.X, gp.Y = x, y
 	// K's gradient by parameters and inputs
 	gp.dK = make([]*mat.SymDense,
-		gp.Cov.NTheta()+gp.Noise.NTheta()+gp.NDim*len(x))
+		gp.Simil.NTheta()+gp.Noise.NTheta()+gp.NDim*len(x))
 
 	if len(x) == 0 {
 		// No observations
 		return nil
 	}
 
-	// Covariance matrix
+	// Similariance matrix
 	K := mat.NewSymDense(len(x), nil)
 
 	for i := range gp.dK {
 		gp.dK[i] = mat.NewSymDense(len(x), nil)
 		gp.dK[i].Zero()
 	}
-	kargs := make([]float64, gp.Cov.NTheta()+2*gp.NDim)
+	kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
 	nkargs := make([]float64, gp.Noise.NTheta()+gp.NDim)
-	copy(kargs, gp.ThetaCov)
+	copy(kargs, gp.ThetaSimil)
 	copy(nkargs, gp.ThetaNoise)
 	for i := 0; i != len(x); i++ {
-		copy(kargs[gp.Cov.NTheta():], x[i])
+		copy(kargs[gp.Simil.NTheta():], x[i])
 		for j := i; j != len(x); j++ {
-			copy(kargs[gp.Cov.NTheta()+gp.NDim:], x[j])
-			k := gp.Cov.Observe(kargs)
-			kgrad := model.Gradient(gp.Cov)
-			gp.addTodK(i, j, 0, 0, gp.Cov.NTheta(), kgrad)
+			copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[j])
+			k := gp.Simil.Observe(kargs)
+			kgrad := model.Gradient(gp.Simil)
+			gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
 			gp.addTodK(i, j,
-				gp.Cov.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
-				gp.Cov.NTheta(),
+				gp.Simil.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
+				gp.Simil.NTheta(),
 				gp.NDim,
 				kgrad)
 			gp.addTodK(i, j,
-				gp.Cov.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
-				gp.Cov.NTheta()+gp.NDim,
+				gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
+				gp.Simil.NTheta()+gp.NDim,
 				gp.NDim,
 				kgrad)
-			if j == i {
-				// Diagonal, add noise
-				copy(nkargs[gp.Noise.NTheta():], x[j])
+			if j == i { // Diagonal, add noise copy(nkargs[gp.Noise.NTheta():], x[j])
 				n := gp.Noise.Observe(nkargs)
 				ngrad := model.Gradient(gp.Noise)
-				gp.addTodK(i, j, gp.Cov.NTheta(), 0, gp.Noise.NTheta(), ngrad)
+				gp.addTodK(i, j, gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
 				gp.addTodK(i, j,
-					gp.Cov.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
+					gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
 					gp.Noise.NTheta(),
 					gp.NDim,
 					ngrad)
@@ -128,7 +125,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	}
 
 	if !gp.l.Factorize(K) {
-		return fmt.Errorf("factorize")
+		return fmt.Errorf("Factorize(%v)", mat.Formatted(K))
 	}
 
 	gp.alpha = mat.NewVecDense(len(x), nil)
@@ -167,13 +164,13 @@ func (gp *GP) Produce(x [][]float64) (
 	covariance := mat.NewDense(len(x), len(x), nil)
 
 	// Prior variance does not depend on observations
-	kargs := make([]float64, gp.Cov.NTheta()+2*gp.NDim)
-	copy(kargs, gp.ThetaCov)
+	kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
+	copy(kargs, gp.ThetaSimil)
 	for i := 0; i != len(x); i++ {
-		copy(kargs[gp.Cov.NTheta():], x[i])
-		copy(kargs[gp.Cov.NTheta()+gp.NDim:], x[i])
-		k := gp.Cov.Observe(kargs)
-		model.DropGradient(gp.Cov)
+		copy(kargs[gp.Simil.NTheta():], x[i])
+		copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[i])
+		k := gp.Simil.Observe(kargs)
+		model.DropGradient(gp.Simil)
 		variance.SetVec(i, k)
 	}
 
@@ -181,14 +178,14 @@ func (gp *GP) Produce(x [][]float64) (
 	// if available
 	if len(gp.X) > 0 {
 		Kstar := mat.NewDense(len(gp.X), len(x), nil)
-		kargs := make([]float64, gp.Cov.NTheta()+2*gp.NDim)
-		copy(kargs, gp.ThetaCov)
+		kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
+		copy(kargs, gp.ThetaSimil)
 		for i := 0; i != len(gp.X); i++ {
-			copy(kargs[gp.Cov.NTheta():], gp.X[i])
+			copy(kargs[gp.Simil.NTheta():], gp.X[i])
 			for j := 0; j != len(x); j++ {
-				copy(kargs[gp.Cov.NTheta()+gp.NDim:], x[j])
-				k := gp.Cov.Observe(kargs)
-				model.DropGradient(gp.Cov)
+				copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[j])
+				k := gp.Simil.Observe(kargs)
+				model.DropGradient(gp.Simil)
 				Kstar.Set(i, j, k)
 			}
 		}
@@ -233,14 +230,15 @@ func (gp *GP) Produce(x [][]float64) (
 // * only hyperparameters are inferred;
 // * inputs must be assigned to fields X, Y of gp.
 func (gp *GP) Observe(x []float64) float64 {
+	gp.defaults()
 	// Transform
-	for i := 0; i != gp.Cov.NTheta()+gp.Noise.NTheta(); i++ {
+	for i := 0; i != gp.Simil.NTheta()+gp.Noise.NTheta(); i++ {
 		x[i] = math.Exp(x[i])
 	}
 
 	// Destructure
 	x_ := x
-	copy(gp.ThetaCov, model.Shift(&x_, gp.Cov.NTheta()))
+	copy(gp.ThetaSimil, model.Shift(&x_, gp.Simil.NTheta()))
 	copy(gp.ThetaNoise, model.Shift(&x_, gp.Noise.NTheta()))
 	withInputs := len(x_) > 0
 	if withInputs {
@@ -258,13 +256,17 @@ func (gp *GP) Observe(x []float64) float64 {
 		panic("len(x)")
 	}
 
-	gp.Absorb(gp.X, gp.Y)
+	err := gp.Absorb(gp.X, gp.Y)
+	if err != nil {
+		panic(err)
+	}
+
 	if !withInputs {
-		gp.dK = gp.dK[:gp.Cov.NTheta()+gp.Noise.NTheta()]
+		gp.dK = gp.dK[:gp.Simil.NTheta()+gp.Noise.NTheta()]
 	}
 
 	// Restore
-	for i := 0; i != gp.Cov.NTheta()+gp.Noise.NTheta(); i++ {
+	for i := 0; i != gp.Simil.NTheta()+gp.Noise.NTheta(); i++ {
 		x[i] = math.Log(x[i])
 	}
 
@@ -281,15 +283,15 @@ func (gp *GP) Gradient() []float64 {
 		withInputs bool
 	)
 	switch {
-	case len(gp.dK) == gp.Cov.NTheta()+gp.Noise.NTheta():
+	case len(gp.dK) == gp.Simil.NTheta()+gp.Noise.NTheta():
 		// optimizimg hyperparameters only
-		grad = make([]float64, gp.Cov.NTheta()+gp.Noise.NTheta())
-	case len(gp.dK) == gp.Cov.NTheta()+
+		grad = make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
+	case len(gp.dK) == gp.Simil.NTheta()+
 		gp.Noise.NTheta()+
 		len(gp.X)*gp.NDim:
 		// optimizing everything
 		grad = make([]float64,
-			gp.Cov.NTheta()+gp.Noise.NTheta()+len(gp.X)*(gp.NDim+1))
+			gp.Simil.NTheta()+gp.Noise.NTheta()+len(gp.X)*(gp.NDim+1))
 		withInputs = true
 	default:
 		panic("len(gp.dK)")

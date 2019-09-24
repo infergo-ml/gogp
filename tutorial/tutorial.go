@@ -14,9 +14,11 @@ import (
 )
 
 const (
-	NITER = 10
-	EPS = 1E-6
+	NITER  = 100
+	EPS    = 1E-6
 	NTASKS = 1
+	OPTINP = false
+	MINOPT = 1
 )
 
 // Evaluate evaluates Gaussian process gp on the CSV data
@@ -25,7 +27,6 @@ func Evaluate(
 	gp *gp.GP, // Gaussian process
 	m model.Model, // Optimization model
 	theta []float64, // Initial values of hyperparameters
-	optimize_inputs bool, // when true inputs are optimized
 	rdr io.Reader,
 	wtr io.Writer) error {
 	// Load the data
@@ -46,8 +47,8 @@ func Evaluate(
 
 		// Construct the initial point in the optimization space
 		var x []float64
-		if optimize_inputs {
-			x = make([]float64, len(theta) + len(Xi)*(gp.NDim+1))
+		if OPTINP {
+			x = make([]float64, len(theta)+len(Xi)*(gp.NDim+1))
 			copy(x, theta)
 			k := len(theta)
 			for j := range Xi {
@@ -66,14 +67,15 @@ func Evaluate(
 		p := optimize.Problem{Func: Func, Grad: Grad}
 
 		// Initial log likelihood
-		lml0 := m.Observe(x); model.DropGradient(m)
+		lml0 := m.Observe(x)
+		model.DropGradient(m)
 
-		if len(gp.X) > 1 {
+		if len(gp.X) > MINOPT {
 			result, err := optimize.Minimize(
 				p, x, &optimize.Settings{
-					MajorIterations: NITER,
+					MajorIterations:   NITER,
 					GradientThreshold: EPS,
-					Concurrent: NTASKS,
+					Concurrent:        NTASKS,
 				}, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
@@ -82,11 +84,12 @@ func Evaluate(
 		}
 
 		// Final log likelihood
-		lml := m.Observe(x); model.DropGradient(m)
+		lml := m.Observe(x)
+		model.DropGradient(m)
 		ad.DropAllTapes()
 
 		// Forecast
-		Z := X[end:end+1]
+		Z := X[end : end+1]
 		mu, sigma, err := gp.Produce(Z)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to forecast: %v\n", err)
@@ -113,7 +116,7 @@ func load(rdr io.Reader) (
 	err error,
 ) {
 	csv := csv.NewReader(rdr)
-	RECORDS:
+RECORDS:
 	for {
 		record, err := csv.Read()
 		switch err {

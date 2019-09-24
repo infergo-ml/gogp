@@ -5,15 +5,15 @@ import (
 	"bitbucket.org/dtolpin/gogp/kernel/ad"
 	"bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/barebones/kernel/ad"
-	"io"
 	"flag"
+	"io"
 	"os"
 	"strings"
 )
 
 func main() {
 	var (
-		input io.Reader = os.Stdin
+		input  io.Reader = os.Stdin
 		output io.Writer = os.Stdout
 	)
 
@@ -26,17 +26,16 @@ func main() {
 		panic("usage")
 	}
 
-	gp := &gp.GP {
-		NDim: 1,
-		Cov: Kernel,
-		Noise: kernel.ConstantNoise(0.1),
+	gp := &gp.GP{
+		NDim:  1,
+		Simil: Simil,
+		Noise: kernel.UniformNoise,
 	}
-	theta := make([]float64, gp.Cov.NTheta() + gp.Noise.NTheta())
-	tutorial.Evaluate(gp, gp, theta, false, input, output)
+	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
+	tutorial.Evaluate(gp, gp, theta, input, output)
 }
 
-var selfCheckData =
-`0.0,-0.04322589452340684
+var selfCheckData = `0.0,-0.04322589452340684
 0.3141592653589793,0.24791846152402336
 0.6283185307179586,0.2802626294538516
 0.9424777960769379,0.8412528753369979

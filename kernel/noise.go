@@ -1,9 +1,5 @@
 package kernel
 
-import (
-	"math"
-)
-
 // Noise kernels
 
 // ConstantNoise is a noise kernel assigning the same fixed
@@ -26,7 +22,7 @@ type uniformNoise struct{}
 var UniformNoise uniformNoise
 
 func (nk uniformNoise) Observe(x []float64) float64 {
-	return math.Exp(x[0])
+	return x[0]
 }
 
 func (uniformNoise) NTheta() int {
