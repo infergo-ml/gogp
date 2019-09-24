@@ -31,14 +31,14 @@ func main() {
 		NNoiseTheta: 1,
 		NDim: 1,
 		Kernel: Kernel,
-		NoiseKernel: kernel.ConstantNoise(0.0001),
+		NoiseKernel: kernel.ConstantNoise(0.1),
 	}
 	theta := make([]float64, gp.NTheta + gp.NNoiseTheta)
-	theta[2] = -10
 	tutorial.Evaluate(gp, gp, theta, false, input, output)
 }
 
-var selfCheckData = `0.0,-0.04322589452340684
+var selfCheckData =
+`0.0,-0.04322589452340684
 0.3141592653589793,0.24791846152402336
 0.6283185307179586,0.2802626294538516
 0.9424777960769379,0.8412528753369979

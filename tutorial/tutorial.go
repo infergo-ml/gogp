@@ -13,6 +13,12 @@ import (
 	"strconv"
 )
 
+const (
+	NITER = 10
+	EPS = 1E-6
+	NTASKS = 1
+)
+
 // Evaluate evaluates Gaussian process gp on the CSV data
 // read from reader r.
 func Evaluate(
@@ -34,7 +40,7 @@ func Evaluate(
 	// Forecast one step out of sample, iteratively.
 	// Output data augmented with predictions.
 	fmt.Fprintln(os.Stderr, "Forecasting...")
-	for end := 0; end != len(X) - 1; end++ {
+	for end := 0; end != len(X); end++ {
 		Xi := X[:end]
 		Yi := Y[:end]
 
@@ -62,14 +68,21 @@ func Evaluate(
 		// Initial log likelihood
 		lml0 := m.Observe(x); model.DropGradient(m)
 
-		result, err := optimize.Minimize(
-			p, x, &optimize.Settings{}, nil)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
+		if len(gp.X) > 1 {
+			result, err := optimize.Minimize(
+				p, x, &optimize.Settings{
+					MajorIterations: NITER,
+					GradientThreshold: EPS,
+					Concurrent: NTASKS,
+				}, nil)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
+			}
+			x = result.X
 		}
 
 		// Final log likelihood
-		lml := m.Observe(result.X); model.DropGradient(m)
+		lml := m.Observe(x); model.DropGradient(m)
 		ad.DropAllTapes()
 
 		// Forecast

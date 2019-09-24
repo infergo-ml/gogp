@@ -10,4 +10,4 @@ kernel/ad/kernel.go: kernel/kernel.go
 	deriv kernel
 
 clean:
-	rm -f ./hello kernel/ad/*.go
+	rm -f ./barebones kernel/ad/*.go
