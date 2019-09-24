@@ -27,13 +27,11 @@ func main() {
 	}
 
 	gp := &gp.GP {
-		NTheta: 2,
-		NNoiseTheta: 1,
 		NDim: 1,
-		Kernel: Kernel,
-		NoiseKernel: kernel.ConstantNoise(0.1),
+		Cov: Kernel,
+		Noise: kernel.ConstantNoise(0.1),
 	}
-	theta := make([]float64, gp.NTheta + gp.NNoiseTheta)
+	theta := make([]float64, gp.Cov.NTheta() + gp.Noise.NTheta())
 	tutorial.Evaluate(gp, gp, theta, false, input, output)
 }
 

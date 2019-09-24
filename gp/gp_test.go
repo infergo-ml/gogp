@@ -18,11 +18,10 @@ func TestProduce(t *testing.T) {
 		{
 			name: "prior",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0),
-				Theta:       []float64{1.},
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0),
+				ThetaCov:       []float64{1.},
 			},
 			x:     [][]float64{},
 			y:     []float64{},
@@ -33,11 +32,10 @@ func TestProduce(t *testing.T) {
 		{
 			name: "1 self",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0),
-				Theta:       []float64{1.},
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0),
+				ThetaCov:       []float64{1.},
 			},
 			x:     [][]float64{{0}},
 			y:     []float64{1},
@@ -48,11 +46,10 @@ func TestProduce(t *testing.T) {
 		{
 			name: "two selves",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0),
-				Theta:       []float64{1.},
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0),
+				ThetaCov:       []float64{1.},
 			},
 			x:     [][]float64{{0}, {1}},
 			y:     []float64{1, -1},
@@ -63,11 +60,10 @@ func TestProduce(t *testing.T) {
 		{
 			name: "inter",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0),
-				Theta:       []float64{1.},
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0),
+				ThetaCov:       []float64{1.},
 			},
 			x:     [][]float64{{0}, {1}},
 			y:     []float64{1, -1},
@@ -78,11 +74,10 @@ func TestProduce(t *testing.T) {
 		{
 			name: "extra",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0),
-				Theta:       []float64{1.},
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0),
+				ThetaCov:       []float64{1.},
 			},
 			x:     [][]float64{{0}, {1}},
 			y:     []float64{1, -1},
@@ -93,11 +88,10 @@ func TestProduce(t *testing.T) {
 		{
 			name: "noise",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0.1),
-				Theta:       []float64{1.},
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0.1),
+				ThetaCov:       []float64{1.},
 			},
 			x:     [][]float64{{0}, {1}},
 			y:     []float64{1, -1},
@@ -150,10 +144,9 @@ func TestElementalModel(t *testing.T) {
 		{
 			name: "prior",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0),
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0),
 			},
 			x:   []float64{0},
 			ll:  0,
@@ -162,10 +155,9 @@ func TestElementalModel(t *testing.T) {
 		{
 			name: "single",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0),
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0),
 			},
 			x:   []float64{0, 0, 1},
 			ll:  -1.418939,
@@ -174,10 +166,9 @@ func TestElementalModel(t *testing.T) {
 		{
 			name: "nonoise",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0),
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0),
 			},
 			x:  []float64{0, 0, 1, 1, 0},
 			ll: -2.399528,
@@ -188,10 +179,9 @@ func TestElementalModel(t *testing.T) {
 		{
 			name: "withnoise",
 			gp: &GP{
-				NTheta:      1,
 				NDim:        1,
-				Kernel:      kernel.Normal,
-				NoiseKernel: kernel.ConstantNoise(0.1),
+				Cov:      kernel.Normal,
+				Noise: kernel.ConstantNoise(0.1),
 			},
 			x:  []float64{0, -2, -1, 1, 0},
 			ll: -2.405074,
@@ -220,17 +210,17 @@ func TestElementalModel(t *testing.T) {
 		}
 
 		// test Observe with hyperparameters only
-		x := c.x[:c.gp.NTheta+c.gp.NNoiseTheta]
+		x := c.x[:c.gp.Cov.NTheta()+c.gp.Noise.NTheta()]
 		ll = c.gp.Observe(x)
 		dll = c.gp.Gradient()
 		if math.Abs(ll-c.ll) >= 1E-6 {
 			t.Errorf("%s: wrong log-likelihood (hyperparameters only):"+
 				" got %f, want %f", c.name, ll, c.ll)
 		}
-		if len(dll) != c.gp.NTheta+c.gp.NNoiseTheta {
+		if len(dll) != c.gp.Cov.NTheta()+c.gp.Noise.NTheta() {
 			t.Errorf("%s: wrong gradient size (hyperparameters only):"+
 				" got %d, want %d",
-				c.name, len(dll), c.gp.NTheta+c.gp.NNoiseTheta)
+				c.name, len(dll), c.gp.Cov.NTheta()+c.gp.Noise.NTheta())
 			continue
 		}
 		for i := range dll {
@@ -238,7 +228,7 @@ func TestElementalModel(t *testing.T) {
 				t.Errorf("%s: wrong gradient (hyperparameters only):"+
 					" got %v, want %v",
 					c.name, dll,
-					c.dll[:c.gp.NTheta+c.gp.NNoiseTheta])
+					c.dll[:c.gp.Cov.NTheta()+c.gp.Noise.NTheta()])
 				break
 			}
 		}

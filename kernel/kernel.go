@@ -16,6 +16,10 @@ func (k normal) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2])
 }
 
+func (normal) NTheta() int {
+	return 1
+}
+
 func (normal) Cov(l, xa, xb float64) float64 {
 	d := (xa - xb) / l
 	return math.Exp(-d * d / 2)
@@ -31,6 +35,10 @@ var Periodic periodic
 
 func (k periodic) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2], x[3])
+}
+
+func (periodic) NTheta() int {
+	return 2
 }
 
 func (periodic) Cov(l, p, xa, xb float64) float64 {
@@ -55,6 +63,10 @@ func (k matern32) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2])
 }
 
+func (matern32) NTheta() int {
+	return 1
+}
+
 func (matern32) Cov(l, xa, xb float64) float64 {
 	d := math.Abs(xa-xb) / l
 	return (1 + sqrt3*d) * math.Exp(-sqrt3*d)
@@ -68,6 +80,10 @@ var Matern52 matern52
 
 func (k matern52) Observe(x []float64) float64 {
 	return k.Cov(x[0], x[1], x[2])
+}
+
+func (matern52) NTheta() int {
+	return 1
 }
 
 func (matern52) Cov(l, xa, xb float64) float64 {
