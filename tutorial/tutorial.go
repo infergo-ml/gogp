@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"gonum.org/v1/gonum/optimize"
 	"io"
+	"os"
 	"strconv"
 )
 
@@ -23,14 +24,17 @@ func Evaluate(
 	wtr io.Writer) error {
 	// Load the data
 	var err error
+	fmt.Fprint(os.Stderr, "loading...")
 	X, Y, err := load(rdr)
 	if err != nil {
 		return err
 	}
+	fmt.Fprintln(os.Stderr, "done")
 
 	// Forecast one step out of sample, iteratively.
 	// Output data augmented with predictions.
-	for end := 0; end != len(gp.X) - 1; end++ {
+	fmt.Fprintln(os.Stderr, "Forecasting...")
+	for end := 0; end != len(X) - 1; end++ {
 		Xi := X[:end]
 		Yi := Y[:end]
 
@@ -61,7 +65,7 @@ func Evaluate(
 		result, err := optimize.Minimize(
 			p, x, &optimize.Settings{}, nil)
 		if err != nil {
-			panic(err)
+			fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
 		}
 
 		// Final log likelihood
@@ -71,14 +75,19 @@ func Evaluate(
 		// Forecast
 		Z := X[end:end+1]
 		mu, sigma, err := gp.Produce(Z)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to forecast: %v\n", err)
+		}
 
 		// Output forecasts
-		for j := range Z[0] {
-			fmt.Fprintf(wtr, "%v,", Z[j])
+		z := Z[0]
+		for j := range z {
+			fmt.Fprintf(wtr, "%f,", z[j])
 		}
-		fmt.Fprintf(wtr, "%v,%v,%v,%v,%v",
-			Y[end], mu, sigma, lml0, lml)
+		fmt.Fprintf(wtr, "%f,%f,%f,%f,%f\n",
+			Y[end], mu[0], sigma[0], lml0, lml)
 	}
+	fmt.Fprintln(os.Stderr, "done")
 
 	return nil
 }
@@ -91,6 +100,7 @@ func load(rdr io.Reader) (
 	err error,
 ) {
 	csv := csv.NewReader(rdr)
+	RECORDS:
 	for {
 		record, err := csv.Read()
 		switch err {
@@ -114,7 +124,7 @@ func load(rdr io.Reader) (
 			y = append(y, yi)
 		case io.EOF:
 			// end of file
-			break
+			break RECORDS
 		default:
 			// i/o error
 			return x, y, err

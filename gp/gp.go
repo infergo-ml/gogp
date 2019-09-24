@@ -232,8 +232,8 @@ func (gp *GP) Observe(x []float64) float64 {
 
 	// Destructure
 	x_ := x
-	gp.Theta = model.Shift(&x_, gp.NTheta)
-	gp.NoiseTheta = model.Shift(&x_, gp.NNoiseTheta)
+	copy(gp.Theta, model.Shift(&x_, gp.NTheta))
+	copy(gp.NoiseTheta, model.Shift(&x_, gp.NNoiseTheta))
 	withInputs := len(x_) > 0
 	if withInputs {
 		// Inputs are inferred as well as parameters,

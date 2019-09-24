@@ -17,8 +17,10 @@ func (nk ConstantNoise) Observe(x []float64) float64 {
 
 // UniformNoise is a noise kernel for learning the same noise
 // variance for all points.
-type UniformNoise struct{}
+type uniformNoise struct{}
 
-func (nk UniformNoise) Observe(x []float64) float64 {
+var UniformNoise uniformNoise
+
+func (nk uniformNoise) Observe(x []float64) float64 {
 	return math.Exp(x[0])
 }
