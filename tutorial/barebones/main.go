@@ -2,7 +2,6 @@ package main
 
 import (
 	"bitbucket.org/dtolpin/gogp/gp"
-	"bitbucket.org/dtolpin/gogp/kernel/ad"
 	"bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/barebones/kernel/ad"
 	"flag"
@@ -29,7 +28,7 @@ func main() {
 	gp := &gp.GP{
 		NDim:  1,
 		Simil: Simil,
-		Noise: kernel.UniformNoise,
+		Noise: Noise(0.01),
 	}
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 	tutorial.Evaluate(gp, gp, theta, input, output)

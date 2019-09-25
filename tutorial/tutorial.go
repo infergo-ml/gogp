@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	NITER  = 100
-	EPS    = 1E-6
-	NTASKS = 1
+	NITER  = 0
+	EPS    = 0
+	NTASKS = 0
 	OPTINP = false
-	MINOPT = 1
+	MINOPT = 0
 )
 
 // Evaluate evaluates Gaussian process gp on the CSV data
@@ -76,8 +76,10 @@ func Evaluate(
 					MajorIterations:   NITER,
 					GradientThreshold: EPS,
 					Concurrent:        NTASKS,
-				}, nil)
-			if err != nil {
+				}, &optimize.LBFGS{})
+			if err != nil && result.Stats.MajorIterations == 1 {
+				// There was a problem and the optimizer stopped 
+				// on first iteration
 				fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
 			}
 			x = result.X

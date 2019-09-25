@@ -50,11 +50,11 @@ func (gp *GP) defaults() {
 	}
 }
 
-// addTodK adds gradient components to the corresponding elements of
-// dK.
+// addTodK adds gradient components fromto the corresponding
+// elements of dK.
 func (gp *GP) addTodK(
 	i, j int,
-	ipar0, jpar0 int,
+	ipar0 /* over dK */, jpar0 /* over grad */ int,
 	narg int,
 	grad []float64) {
 	jpar := jpar0
@@ -109,7 +109,8 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 				gp.Simil.NTheta()+gp.NDim,
 				gp.NDim,
 				kgrad)
-			if j == i { // Diagonal, add noise copy(nkargs[gp.Noise.NTheta():], x[j])
+			if j == i { // Diagonal, add noise 
+				copy(nkargs[gp.Noise.NTheta():], x[j])
 				n := gp.Noise.Observe(nkargs)
 				ngrad := model.Gradient(gp.Noise)
 				gp.addTodK(i, j, gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
@@ -218,7 +219,7 @@ func (gp *GP) Produce(x [][]float64) (
 }
 
 // Observe and Gradient implement Infergo's ElementalModel.
-// The model can be used on its own or as a part of a larger
+// The model can be used on its own or, as a part of a larger
 // model, to infer the parameters.
 
 // Observe computes log marginal likelihood of the parameters
@@ -262,6 +263,9 @@ func (gp *GP) Observe(x []float64) float64 {
 	}
 
 	if !withInputs {
+		// If inputs are not inferred, we drop dK components
+		// corresponding to derivatives by input locations and
+		// inputs.
 		gp.dK = gp.dK[:gp.Simil.NTheta()+gp.Noise.NTheta()]
 	}
 
@@ -286,18 +290,19 @@ func (gp *GP) Gradient() []float64 {
 	case len(gp.dK) == gp.Simil.NTheta()+gp.Noise.NTheta():
 		// optimizimg hyperparameters only
 		grad = make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
-	case len(gp.dK) == gp.Simil.NTheta()+
-		gp.Noise.NTheta()+
+	case len(gp.dK) == gp.Simil.NTheta()+gp.Noise.NTheta()+
 		len(gp.X)*gp.NDim:
 		// optimizing everything
 		grad = make([]float64,
 			gp.Simil.NTheta()+gp.Noise.NTheta()+len(gp.X)*(gp.NDim+1))
 		withInputs = true
 	default:
+		// cannot happen
 		panic("len(gp.dK)")
 	}
 
 	if len(gp.X) == 0 {
+		// no inputs, return zero gradient
 		return grad
 	}
 
