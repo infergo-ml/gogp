@@ -1,6 +1,19 @@
 package kernel
 
 // Noise kernels
+// 
+// A noise kernel is used to add noise to diagonal elements
+// of the covariance matrix. It is different from a similarity
+// kernel in that it accepts a single input location.
+//
+// Noise kernels are common in implementations of GP. However,
+// when the GP is a part of a larger model, a more flexible and
+// consistent way to account for noise is to treat GP inputs as
+// latent variables with conditional priors. For example,
+// normal noise can be represented as a normal prior on the
+// latent input centered around the observed input. Noise
+// variance can be specified or inferred in the model
+// incrorporating the GP.
 
 // ConstantNoise is a noise kernel assigning the same fixed
 // noise to all points. Used as a default when no noise kernel
