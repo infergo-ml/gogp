@@ -4,6 +4,9 @@ import (
 	"bitbucket.org/dtolpin/gogp/kernel"
 )
 
+// The similarity kernel, just a scaled RBF. 
+// To add output scale scaling, all one needs to do
+// is to multiple the finction value by another parameter.
 type simil struct{}
 
 var Simil simil
@@ -13,6 +16,11 @@ func (simil) Observe(x []float64) float64 {
 }
 
 func (simil) NTheta() int { return 2 }
+
+// The noise kernel, uniform noise scaled by a likely value.
+// Scaling is tantamount to specifying an initial
+// point in the proximity of a reasonable noise variance but
+// makes the code easier to write and read.
 
 type Noise float64
 
