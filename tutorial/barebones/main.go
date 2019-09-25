@@ -5,10 +5,27 @@ import (
 	"bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/barebones/kernel/ad"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"strings"
 )
+
+func init() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(),
+			`A bare bones time series forecasting with gogp. RBF similarity
+and uniform noise kernels are used. This basic use is similar to
+GP regression with scikit-learn, for example. Invocation:
+  %s < INPUT > OUTPUT
+or
+  %s selfcheck
+In 'selfcheck' mode, the data hard-coded into the program is used,
+to demonstrate basic functionality.
+`, os.Args[0], os.Args[0])
+		flag.PrintDefaults()
+	}
+}
 
 func main() {
 	var (
@@ -29,6 +46,9 @@ func main() {
 		NDim:  1,
 		Simil: Simil,
 		Noise: Noise(0.01),
+		// 0.01 is the `prior', or rather the starting search
+		// point for input noise; see kernel/kernel.go for
+		// details. We might modify the initial point instead.
 	}
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 	tutorial.Evaluate(gp, gp, theta, input, output)

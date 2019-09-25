@@ -22,7 +22,13 @@ const (
 )
 
 // Evaluate evaluates Gaussian process gp on the CSV data
-// read from reader r.
+// read from reader r. This function is intended to be
+// called from all (or most) case studies in the tutorial.
+// For optimization, LBFGS from the gonum library (http://gonum.org)
+// is used for faster execution. In general though, LBFGS is a bit
+// of hit-or-miss, failing to optimize occasionally, so in real
+// applications a different optimization/inference algorithm may
+// be a better choice.
 func Evaluate(
 	gp *gp.GP, // Gaussian process
 	m model.Model, // Optimization model
@@ -48,6 +54,9 @@ func Evaluate(
 		// Construct the initial point in the optimization space
 		var x []float64
 		if OPTINP {
+			// If the inputs are optimized as well as the
+			// hyperparameters, the inputs are appended to the
+			// parameter vector of Observe. 
 			x = make([]float64, len(theta)+len(Xi)*(gp.NDim+1))
 			copy(x, theta)
 			k := len(theta)
@@ -57,6 +66,8 @@ func Evaluate(
 			}
 			copy(theta[k:], Yi)
 		} else {
+			// If only the hyperparameters are optimized, the
+			// inputs are stored in the fields of the GP.
 			x = theta
 			gp.X = Xi
 			gp.Y = Yi
@@ -70,16 +81,24 @@ func Evaluate(
 		lml0 := m.Observe(x)
 		model.DropGradient(m)
 
+		// For some kernels and data, the optimizing of
+		// hyperparameters does not make sense with too few
+		// points.
 		if len(gp.X) > MINOPT {
 			result, err := optimize.Minimize(
 				p, x, &optimize.Settings{
 					MajorIterations:   NITER,
 					GradientThreshold: EPS,
 					Concurrent:        NTASKS,
-				}, &optimize.LBFGS{})
+				}, nil)
+			// We do not need the optimizer to `officially'
+			// converge, a few iterations usually bring most
+			// of the improvement. However, in pathological
+			// cases even a single iteration does not succeed,
+			// and we want to report that.
 			if err != nil && result.Stats.MajorIterations == 1 {
-				// There was a problem and the optimizer stopped 
-				// on first iteration
+				// There was a problem and the optimizer stopped
+				// on first iteration. 
 				fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
 			}
 			x = result.X
