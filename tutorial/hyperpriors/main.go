@@ -43,10 +43,7 @@ func main() {
 	gp := &gp.GP{
 		NDim:  1,
 		Simil: Simil,
-		Noise: Noise(0.01),
-		// 0.01 is the `prior', or rather the starting search
-		// point for input noise; see kernel/kernel.go for
-		// details. We might modify the initial point instead.
+		Noise: Noise,
 	}
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 	tutorial.Evaluate(gp, gp, theta, input, output)

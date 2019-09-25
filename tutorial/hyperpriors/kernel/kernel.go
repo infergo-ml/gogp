@@ -10,25 +10,29 @@ type simil struct{}
 var Simil simil
 
 func (simil) Observe(x []float64) float64 {
-	c1 := x[0] // trend output scale
-	c2 := x[1] // season output scale
-	l1 := x[2] // trend length scale
-	l2 := x[3] // season length scale
-	p := x[4] // season period
-	xa := x[5] // first point
-	xb := x[6] // second point
+	const (
+		c1 = iota // trend scale
+		c2        // season scale
+		l1        // trend length scale
+		l2        // season length scale
+		p         // season period
+		xa        // first point
+		xb        // second point
+	)
 
-	return c1 * kernel.Matern52.Cov(l1, xa, xb) +
-		   c2 * kernel.Periodic.Cov(l2, p, xa, xb)
+	return x[c1]*kernel.Matern52.Cov(x[l1], x[xa], x[xb]) +
+		x[c2]*kernel.Periodic.Cov(x[l2], x[p], x[xa], x[xb])
 }
 
 func (simil) NTheta() int { return 5 }
 
 // The noise kernel.
-type Noise float64
+type noise struct{}
 
-func (n Noise) Observe(x []float64) float64 {
-	return float64(n) * kernel.UniformNoise.Observe(x)
+var Noise noise
+
+func (n noise) Observe(x []float64) float64 {
+	return kernel.UniformNoise.Observe(x)
 }
 
-func (Noise) NTheta() int { return 1 }
+func (noise) NTheta() int { return 1 }
