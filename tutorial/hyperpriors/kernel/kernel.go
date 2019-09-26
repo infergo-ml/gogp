@@ -21,7 +21,7 @@ func (simil) Observe(x []float64) float64 {
 	)
 
 	return x[c1]*kernel.Matern52.Cov(x[l1], x[xa], x[xb]) +
-		x[c2]*kernel.Periodic.Cov(x[l2], 8*x[p], x[xa], x[xb])
+		x[c2]*kernel.Periodic.Cov(x[l2], x[p], x[xa], x[xb])
 }
 
 func (simil) NTheta() int { return 5 }
