@@ -32,7 +32,7 @@ type noise struct{}
 var Noise noise
 
 func (n noise) Observe(x []float64) float64 {
-	return 0.01*kernel.UniformNoise.Observe(x)
+	return 0.01 * kernel.UniformNoise.Observe(x)
 }
 
 func (noise) NTheta() int { return 1 }

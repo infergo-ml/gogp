@@ -28,8 +28,8 @@ to demonstrate basic functionality.
 }
 
 type Model struct {
-	gp *gp.GP
-	priors *Priors
+	gp           *gp.GP
+	priors       *Priors
 	gGrad, pGrad []float64
 }
 
@@ -42,7 +42,7 @@ func (m *Model) Observe(x []float64) float64 {
 
 func (m *Model) Gradient() []float64 {
 	for i := range m.pGrad {
-		m.gGrad[i] += m.pGrad[i]	
+		m.gGrad[i] += m.pGrad[i]
 	}
 
 	return m.gGrad
@@ -68,8 +68,8 @@ func main() {
 		Simil: Simil,
 		Noise: Noise,
 	}
-	m := &Model {
-		gp: gp,
+	m := &Model{
+		gp:     gp,
 		priors: &Priors{},
 	}
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())

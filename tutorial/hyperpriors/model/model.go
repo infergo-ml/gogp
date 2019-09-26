@@ -5,8 +5,7 @@ import (
 	"math"
 )
 
-type Priors struct {}
-
+type Priors struct{}
 
 func (*Priors) Observe(x []float64) float64 {
 	const (
@@ -24,7 +23,7 @@ func (*Priors) Observe(x []float64) float64 {
 	ll += Normal.Logp(-1, 2, x[c1])
 
 	// seasonality weight is normally lower than trend weight
-	ll += Normal.Logp(x[c1] - math.Log(2), 1, x[c2])
+	ll += Normal.Logp(x[c1]-math.Log(2), 1, x[c2])
 
 	// length scale is around 1, in wide margins
 	ll += Normal.Logp(0, 2, x[l1])
