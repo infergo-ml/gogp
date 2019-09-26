@@ -21,7 +21,7 @@ func (simil) Observe(x []float64) float64 {
 	)
 
 	return x[c1]*kernel.Matern52.Cov(x[l1], x[xa], x[xb]) +
-		x[c2]*kernel.Periodic.Cov(x[l2], x[p], x[xa], x[xb])
+		x[c2]*kernel.Periodic.Cov(x[l2], 10*x[p], x[xa], x[xb])
 }
 
 func (simil) NTheta() int { return 5 }
@@ -32,7 +32,7 @@ type noise struct{}
 var Noise noise
 
 func (n noise) Observe(x []float64) float64 {
-	return kernel.UniformNoise.Observe(x)
+	return 0.01*kernel.UniformNoise.Observe(x)
 }
 
 func (noise) NTheta() int { return 1 }

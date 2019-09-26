@@ -4,6 +4,8 @@ import (
 	"bitbucket.org/dtolpin/gogp/gp"
 	"bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/hyperpriors/kernel/ad"
+	. "bitbucket.org/dtolpin/gogp/tutorial/hyperpriors/model/ad"
+	"bitbucket.org/dtolpin/infergo/model"
 	"flag"
 	"fmt"
 	"io"
@@ -23,6 +25,27 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
+}
+
+type Model struct {
+	gp *gp.GP
+	priors *Priors
+	gGrad, pGrad []float64
+}
+
+func (m *Model) Observe(x []float64) float64 {
+	var gll, pll float64
+	gll, m.gGrad = m.gp.Observe(x), model.Gradient(m.gp)
+	pll, m.pGrad = m.priors.Observe(x), model.Gradient(m.priors)
+	return gll + pll
+}
+
+func (m *Model) Gradient() []float64 {
+	for i := range m.pGrad {
+		m.gGrad[i] += m.pGrad[i]	
+	}
+
+	return m.gGrad
 }
 
 func main() {
@@ -45,8 +68,12 @@ func main() {
 		Simil: Simil,
 		Noise: Noise,
 	}
+	m := &Model {
+		gp: gp,
+		priors: &Priors{},
+	}
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
-	tutorial.Evaluate(gp, gp, theta, input, output)
+	tutorial.Evaluate(gp, m, theta, input, output)
 }
 
 var selfCheckData = `0.0,0.9175039317065515
