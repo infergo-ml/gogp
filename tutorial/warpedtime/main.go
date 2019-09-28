@@ -16,7 +16,7 @@ import (
 func init() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
-			`A model with priors on hyperparameters. Invocation:
+			`A model with warped time. Invocation:
   %s < INPUT > OUTPUT
 or
   %s selfcheck
