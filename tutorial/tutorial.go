@@ -21,20 +21,22 @@ const (
 	MINOPT = 0
 )
 
-// Evaluate evaluates Gaussian process gp on the CSV data
-// read from reader r. This function is intended to be
-// called from all (or most) case studies in the tutorial.
-// For optimization, LBFGS from the gonum library (http://gonum.org)
-// is used for faster execution. In general though, LBFGS is a bit
-// of hit-or-miss, failing to optimize occasionally, so in real
-// applications a different optimization/inference algorithm may
-// be a better choice.
+// Evaluate evaluates Gaussian process on CSV data.  One step
+// out of sample forecast is recorded for each time point, along
+// with the hyperparameters. This function is called by all
+// case studies in the tutorial. For optimization, LBFGS from
+// the gonum library (http://gonum.org) is used for faster
+// execution. In general though, LBFGS is a bit of hit-or-miss,
+// failing to optimize occasionally, so in real applications a
+// different optimization/inference algorithm may be a better
+// choice.
 func Evaluate(
-	gp *gp.GP, // Gaussian process
-	m model.Model, // Optimization model
-	theta []float64, // Initial values of hyperparameters
-	rdr io.Reader,
-	wtr io.Writer) error {
+	gp *gp.GP, // gaussian process
+	m model.Model, // optimization model
+	theta []float64, // initial values of hyperparameters
+	rdr io.Reader, // data
+	wtr io.Writer, // forecasts
+) error {
 	// Load the data
 	var err error
 	fmt.Fprint(os.Stderr, "loading...")
@@ -56,7 +58,7 @@ func Evaluate(
 		if OPTINP {
 			// If the inputs are optimized as well as the
 			// hyperparameters, the inputs are appended to the
-			// parameter vector of Observe. 
+			// parameter vector of Observe.
 			x = make([]float64, len(theta)+len(Xi)*(gp.NDim+1))
 			copy(x, theta)
 			k := len(theta)
@@ -98,7 +100,7 @@ func Evaluate(
 			// and we want to report that.
 			if err != nil && result.Stats.MajorIterations == 1 {
 				// There was a problem and the optimizer stopped
-				// on first iteration. 
+				// on first iteration.
 				fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
 			}
 			x = result.X
@@ -121,8 +123,15 @@ func Evaluate(
 		for j := range z {
 			fmt.Fprintf(wtr, "%f,", z[j])
 		}
-		fmt.Fprintf(wtr, "%f,%f,%f,%f,%f\n",
+		fmt.Fprintf(wtr, "%f,%f,%f,%f,%f",
 			Y[end], mu[0], sigma[0], lml0, lml)
+		for i := range gp.ThetaSimil {
+			fmt.Fprintf(wtr, ",%f", gp.ThetaSimil[i])
+		}
+		for i := range gp.ThetaNoise {
+			fmt.Fprintf(wtr, ",%f", gp.ThetaNoise[i])
+		}
+		fmt.Fprintln(wtr)
 	}
 	fmt.Fprintln(os.Stderr, "done")
 
@@ -167,5 +176,6 @@ RECORDS:
 			return x, y, err
 		}
 	}
+
 	return x, y, err
 }

@@ -4,7 +4,7 @@ import (
 	"bitbucket.org/dtolpin/gogp/kernel"
 )
 
-// The similarity kernel, just a scaled RBF. 
+// The similarity kernel, just a scaled RBF.
 // To add output scale scaling, all one needs to do
 // is to multiple the finction value by another parameter.
 type simil struct{}
