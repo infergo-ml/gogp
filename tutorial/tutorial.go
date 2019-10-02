@@ -13,12 +13,12 @@ import (
 	"strconv"
 )
 
-const (
-	NITER  = 0
-	EPS    = 0
-	NTASKS = 0
-	OPTINP = false
-	MINOPT = 0
+var (
+	NITER          = 0
+	EPS    float64 = 0
+	NTASKS         = 0
+	OPTINP         = false
+	MINOPT         = 0
 )
 
 // Evaluate evaluates Gaussian process on CSV data.  One step
@@ -63,10 +63,10 @@ func Evaluate(
 			copy(x, theta)
 			k := len(theta)
 			for j := range Xi {
-				copy(theta[k:], Xi[j])
+				copy(x[k:], Xi[j])
 				k += gp.NDim
 			}
-			copy(theta[k:], Yi)
+			copy(x[k:], Yi)
 		} else {
 			// If only the hyperparameters are optimized, the
 			// inputs are stored in the fields of the GP.

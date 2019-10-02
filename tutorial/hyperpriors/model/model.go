@@ -20,7 +20,7 @@ func (*Priors) Observe(x []float64) float64 {
 	ll := 0.
 
 	// trend weight is a number between 0 and 1
-	ll += Normal.Logp(-1, 2, x[c1])
+	ll += Normal.Logp(-1, 1, x[c1])
 
 	// seasonality weight is normally lower than trend weight
 	ll += Normal.Logp(x[c1]-math.Log(2), 1, x[c2])

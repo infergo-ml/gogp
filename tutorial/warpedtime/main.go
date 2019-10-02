@@ -45,10 +45,18 @@ func (m *Model) Gradient() []float64 {
 		m.gGrad[i] += m.pGrad[i]
 	}
 
+	// Wipe gradients of the last location and all inputs
+	ixlast := m.gp.Simil.NTheta() + m.gp.Noise.NTheta() + len(m.gp.X) - 1
+	for i := ixlast; i != len(m.gGrad); i++ {
+		m.gGrad[i] = 0
+	}
+
 	return m.gGrad
 }
 
 func main() {
+	tutorial.OPTINP = true
+
 	var (
 		input  io.Reader = os.Stdin
 		output io.Writer = os.Stdout
