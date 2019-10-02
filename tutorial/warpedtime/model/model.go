@@ -4,25 +4,25 @@ import (
 	. "bitbucket.org/dtolpin/infergo/dist"
 )
 
-type Priors struct{
+type Priors struct {
 	step []float64 // steps between consequent points
 }
 
 func (m *Priors) Observe(x []float64) float64 {
 	const (
-		c = iota // output scale
-		l        // length scale
-		s        // noise
-		i0       // first input location
+		c  = iota // output scale
+		l         // length scale
+		s         // noise
+		i0        // first input location
 	)
 
-	n := len(x[i0:])/2
-	if len(m.step) != n - 1 {
+	n := len(x[i0:]) / 2
+	if len(m.step) != n-1 {
 		if n > 1 {
 			// First call, memoize initial distances between inputs
-			m.step = make([]float64, n - 1)
+			m.step = make([]float64, n-1)
 			for i := range m.step {
-				m.step[i], _ = x[i0+i+1] - x[i0+i], true
+				m.step[i], _ = x[i0+i+1]-x[i0+i], true // hide from ad
 			}
 		} else {
 			m.step = nil
@@ -42,7 +42,7 @@ func (m *Priors) Observe(x []float64) float64 {
 
 	//  We allow input locations to move slightly.
 	for i := range m.step {
-		ll += Normal.Logp(1, 0.2, (x[i0 + i + 1] - x[i0 + i])/m.step[i])
+		ll += Normal.Logp(1, 0.2, (x[i0+i+1]-x[i0+i])/m.step[i])
 	}
 
 	return ll

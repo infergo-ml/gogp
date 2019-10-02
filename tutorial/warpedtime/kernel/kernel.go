@@ -11,13 +11,13 @@ var Simil simil
 
 func (simil) Observe(x []float64) float64 {
 	const (
-		c = iota // output scale
-		l        // length scale
+		c  = iota // output scale
+		l         // length scale
 		xa        // first point
 		xb        // second point
 	)
 
-	return x[c]*kernel.Matern52.Cov(x[l], x[xa], x[xb])
+	return x[c] * kernel.Matern52.Cov(x[l], x[xa], x[xb])
 }
 
 func (simil) NTheta() int { return 2 }
