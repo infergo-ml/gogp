@@ -22,7 +22,15 @@ func (m *Priors) Observe(x []float64) float64 {
 			// First call, memoize initial distances between inputs
 			m.step = make([]float64, n-1)
 			for i := range m.step {
-				m.step[i], _ = x[i0+i+1]-x[i0+i], true // hide from ad
+				// For use with the tutorial, we hide the assignment
+				// from automatic differentation by making it a parallel
+				// non float64 assignment (which is not differentiated).
+				// Otherwise, the values of m.step elements will be
+				// restored by the backward pass.
+				//
+				// In a practical implementation, steps should rather be
+				// pre-computed before inference.
+				m.step[i], _ = x[i0+i+1]-x[i0+i], true
 			}
 		} else {
 			m.step = nil
