@@ -2,10 +2,12 @@ package model
 
 import (
 	. "bitbucket.org/dtolpin/infergo/dist"
+	"math"
 )
 
 type Priors struct {
-	step []float64 // steps between consequent points
+	LogSigma float64   // log standard deviation of relative step
+	step     []float64 // steps between consequent points
 }
 
 func (m *Priors) Observe(x []float64) float64 {
@@ -50,7 +52,8 @@ func (m *Priors) Observe(x []float64) float64 {
 
 	//  We allow input locations to move slightly.
 	for i := range m.step {
-		ll += Normal.Logp(1, 0.2, (x[i0+i+1]-x[i0+i])/m.step[i])
+		ll += Normal.Logp(1, math.Exp(m.LogSigma),
+			(x[i0+i+1]-x[i0+i])/m.step[i])
 	}
 
 	return ll
