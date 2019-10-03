@@ -23,9 +23,9 @@ func init() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			`A model with warped time. Invocation:
-  %s < INPUT > OUTPUT
+  %s [OPTIONS] < INPUT > OUTPUT
 or
-  %s selfcheck
+  %s [OPTIONS] selfcheck
 In 'selfcheck' mode, the data hard-coded into the program is used,
 to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
