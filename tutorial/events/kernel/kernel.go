@@ -7,15 +7,16 @@ import (
 // The similarity kernel, just a scaled RBF.
 // To add output scale scaling, all one needs to do
 // is to multiple the finction value by another parameter.
-type simil struct{}
-
-var Simil simil
-
-func (simil) Observe(x []float64) float64 {
-	return x[0] * kernel.Matern52.Observe(x[1:])
+type Simil struct{
+	Events [][3]float64
 }
 
-func (simil) NTheta() int { return 2 }
+func (s *Simil) Observe(x []float64) float64 {
+	k := x[0] * kernel.Matern52.Observe(x[1:])
+	return k
+}
+
+func (*Simil) NTheta() int { return 2 }
 
 // The noise kernel, uniform noise scaled by a likely value.
 // Scaling is tantamount to specifying an initial

@@ -49,7 +49,7 @@ func main() {
 
 	gp := &gp.GP{
 		NDim:  1,
-		Simil: Simil,
+		Simil: &Simil{},
 		Noise: Noise(0.01),
 		// 0.01 is the `prior', or rather the starting search
 		// point for input noise; see kernel/kernel.go for
