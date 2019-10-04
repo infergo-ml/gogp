@@ -30,14 +30,14 @@ func (s *Simil) Observe(x []float64) float64 {
 	k := x[c] * kernel.Matern52.Observe(x[l:])
 
 	// Discount similarities crossing event boundaries
+	xa, xb := x[a], x[b]
+	if xa > xb {
+		xa, xb = xb, xa
+	}
 	for i := range s.Events {
 		e := s.Events[i]
-		xa, xb := x[a], x[b]
-		if xa > xb {
-			xa, xb = xb, xa
-		}
-		if xa <= e[from] && e[from] <= xb ||
-			xa <= e[to] && e[to] <= xb {
+		if xa < e[from] && e[from] <= xb ||
+			xa < e[to] && e[to] <= xb {
 			k *= e[discount]
 			break
 		}
