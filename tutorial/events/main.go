@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -28,8 +29,8 @@ to demonstrate basic functionality.
 		flag.PrintDefaults()
 	}
 	flag.StringVar(&EVENTS, "events", EVENTS,
-		"comma separated colon connected event list \"from:to:gap,...\", "+
-		"for example \"1.:2.5:1,3:6:0.5\"")
+		"comma separated colon connected event list \"from:to:discount,...\", "+
+			"for example \"1.:2.5:0.3,3:6:0.5\"")
 }
 
 func main() {
@@ -47,14 +48,30 @@ func main() {
 		panic("usage")
 	}
 
+	simil := &Simil{}
+	if len(EVENTS) > 0 {
+		for _, event := range strings.Split(EVENTS, ",") {
+			var e []float64
+			for _, s := range strings.Split(event, ":") {
+				v, err := strconv.ParseFloat(s, 64)
+				if err != nil {
+					panic(err)
+				}
+				e = append(e, v)
+			}
+			simil.Events = append(simil.Events, e)
+		}
+	}
+
 	gp := &gp.GP{
 		NDim:  1,
-		Simil: &Simil{},
+		Simil: simil,
 		Noise: Noise(0.01),
 		// 0.01 is the `prior', or rather the starting search
 		// point for input noise; see kernel/kernel.go for
 		// details. We might modify the initial point instead.
 	}
+
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 	tutorial.Evaluate(gp, gp, theta, input, output)
 }

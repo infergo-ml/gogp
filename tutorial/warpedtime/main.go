@@ -16,6 +16,7 @@ import (
 
 var (
 	LOGSIGMA float64
+	SHOWWARP = false
 )
 
 func init() {
@@ -33,6 +34,8 @@ to demonstrate basic functionality.
 	}
 	flag.Float64Var(&LOGSIGMA, "logsigma", LOGSIGMA,
 		"log standard deviation of relative step")
+	flag.BoolVar(&SHOWWARP, "show-warp", SHOWWARP,
+		"show warped inputs")
 }
 
 type Model struct {
@@ -91,32 +94,36 @@ func main() {
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 
 	// Collect output in a buffer to patch with updated locations
-	buffer := strings.Builder{}
-	tutorial.Evaluate(gp, m, theta, input, &buffer)
 
-	// Predict at updated locations
-	mu, sigma, _ := gp.Produce(gp.X)
+	if SHOWWARP {
+		buffer := strings.Builder{}
+		tutorial.Evaluate(gp, m, theta, input, &buffer)
+		// Predict at updated locations
+		mu, sigma, _ := gp.Produce(gp.X)
 
-	// Patch
-	lines := strings.Split(buffer.String(), "\n")
-	ilast := len(lines) - 1
-	if len(lines[ilast]) == 0 {
-		// There is an extra empty line
-		ilast--
-	}
-	for i, line := range lines[:ilast] {
-		if len(line) == 0 {
-			break
+		// Patch
+		lines := strings.Split(buffer.String(), "\n")
+		ilast := len(lines) - 1
+		if len(lines[ilast]) == 0 {
+			// There is an extra empty line
+			ilast--
 		}
-		fields := strings.SplitN(line, ",", 5)
-		fmt.Fprintf(output, "%f,%f,%f,%f,%s\n",
-			gp.X[i][0], gp.Y[i], mu[i], sigma[i],
-			fields[len(fields)-1])
-	}
+		for i, line := range lines[:ilast] {
+			if len(line) == 0 {
+				break
+			}
+			fields := strings.SplitN(line, ",", 5)
+			fmt.Fprintf(output, "%f,%f,%f,%f,%s\n",
+				gp.X[i][0], gp.Y[i], mu[i], sigma[i],
+				fields[len(fields)-1])
+		}
 
-	// The last location is fixed, and the last line is left
-	// unmodified
-	fmt.Fprintln(output, lines[ilast])
+		// The last location is fixed, and the last line is left
+		// unmodified
+		fmt.Fprintln(output, lines[ilast])
+	} else {
+		tutorial.Evaluate(gp, m, theta, input, output)
+	}
 }
 
 var selfCheckData = `0.1,-3.376024003717768007e+00
