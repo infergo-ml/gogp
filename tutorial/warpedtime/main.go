@@ -56,7 +56,7 @@ func (m *Model) Gradient() []float64 {
 		m.gGrad[i] += m.pGrad[i]
 	}
 
-	// Wipe gradients of the last location and all inputs
+	// Wipe gradients of the last input and all outputs
 	ixlast := m.gp.Simil.NTheta() + m.gp.Noise.NTheta() + len(m.gp.X) - 1
 	for i := ixlast; i != len(m.gGrad); i++ {
 		m.gGrad[i] = 0
@@ -93,12 +93,12 @@ func main() {
 	}
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 
-	// Collect output in a buffer to patch with updated locations
+	// Collect results in a buffer to patch with updated inputs
 
 	if SHOWWARP {
 		buffer := strings.Builder{}
 		tutorial.Evaluate(gp, m, theta, input, &buffer)
-		// Predict at updated locations
+		// Predict at updated inputs
 		mu, sigma, _ := gp.Produce(gp.X)
 
 		// Patch
@@ -118,7 +118,7 @@ func main() {
 				fields[len(fields)-1])
 		}
 
-		// The last location is fixed, and the last line is left
+		// The last input is fixed, and the last line is left
 		// unmodified
 		fmt.Fprintln(output, lines[ilast])
 	} else {

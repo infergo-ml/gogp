@@ -1,10 +1,10 @@
 package kernel
 
 // Noise kernels
-// 
+//
 // A noise kernel is used to add noise to diagonal elements
 // of the covariance matrix. It is different from a similarity
-// kernel in that it accepts a single input location.
+// kernel in that it accepts a single input.
 //
 // Noise kernels are common in implementations of GP. However,
 // when the GP is a part of a larger model, a more flexible and

@@ -138,8 +138,8 @@ func Evaluate(
 	return nil
 }
 
-// load parses the data from csv and returns input locations
-// and inputs, suitable for feeding to the GP.
+// load parses the data from csv and returns inputs and outputs,
+// suitable for feeding to the GP.
 func load(rdr io.Reader) (
 	x [][]float64,
 	y []float64,

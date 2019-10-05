@@ -22,8 +22,8 @@ type GP struct {
 	ThetaSimil, ThetaNoise []float64 // kernel parameters
 
 	// inputs
-	X [][]float64 // locations, for computing covariances
-	Y []float64   // observations
+	X [][]float64 // inputs, for computing covariances
+	Y []float64   // outputs
 
 	// Cached computations
 	l     mat.Cholesky    // Cholesky decomposition of K
@@ -109,7 +109,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 				gp.Simil.NTheta()+gp.NDim,
 				gp.NDim,
 				kgrad)
-			if j == i { // Diagonal, add noise 
+			if j == i { // Diagonal, add noise
 				copy(nkargs[gp.Noise.NTheta():], x[j])
 				n := gp.Noise.Observe(nkargs)
 				ngrad := model.Gradient(gp.Noise)
@@ -223,8 +223,8 @@ func (gp *GP) Produce(x [][]float64) (
 // model, to infer the parameters.
 
 // Observe computes log marginal likelihood of the parameters
-// given the data. The input is contatenation of log-transformed
-// hyperparameters, input locations, and input values.
+// given the data. The argument is contatenation of log-transformed
+// hyperparameters, inputs, and outputs.
 //
 // Optionally, the input can be only log-transformed
 // hyperparameters, and then
@@ -264,8 +264,7 @@ func (gp *GP) Observe(x []float64) float64 {
 
 	if !withInputs {
 		// If inputs are not inferred, we drop dK components
-		// corresponding to derivatives by input locations and
-		// inputs.
+		// corresponding to derivatives by inputs and outputs.
 		gp.dK = gp.dK[:gp.Simil.NTheta()+gp.Noise.NTheta()]
 	}
 
@@ -278,8 +277,7 @@ func (gp *GP) Observe(x []float64) float64 {
 }
 
 // Gradient computes the gradient of the log-likelihood with
-// respect to the parameters and the input data locations
-// (GPML:5.9):
+// respect to the parameters and the inputs (GPML:5.9):
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
 	var (
@@ -306,7 +304,7 @@ func (gp *GP) Gradient() []float64 {
 		return grad
 	}
 
-	// Gradient by parameters (and possibly input locations)
+	// Gradient by parameters (and possibly inputs)
 	for i := range gp.dK {
 		// α α^⊤ ∂Σ/∂θ
 		a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
@@ -325,7 +323,7 @@ func (gp *GP) Gradient() []float64 {
 	}
 
 	if withInputs {
-		// Gradient by inputs
+		// Gradient by outputs
 		for i := range gp.Y {
 			grad[len(gp.dK)+i] = -gp.alpha.AtVec(i)
 		}

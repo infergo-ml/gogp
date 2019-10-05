@@ -15,7 +15,7 @@ func (m *Priors) Observe(x []float64) float64 {
 		c  = iota // output scale
 		l         // length scale
 		s         // noise
-		i0        // first input location
+		i0        // first input
 	)
 
 	n := len(x[i0:]) / 2
@@ -50,7 +50,7 @@ func (m *Priors) Observe(x []float64) float64 {
 	// The noise is scaled by 0.01 in the kernel.
 	ll += Normal.Logp(0, 1, x[s])
 
-	//  We allow input locations to move slightly.
+	//  We allow inputs to move slightly.
 	for i := range m.step {
 		ll += Normal.Logp(1, math.Exp(m.LogSigma),
 			(x[i0+i+1]-x[i0+i])/m.step[i])
