@@ -223,8 +223,8 @@ func (gp *GP) Produce(x [][]float64) (
 // model, to infer the parameters.
 
 // Observe computes log marginal likelihood of the parameters
-// given the data. The argument is contatenation of log-transformed
-// hyperparameters, inputs, and outputs.
+// given the observations. The argument is contatenation of
+// log-transformed hyperparameters, inputs, and outputs.
 //
 // Optionally, the input can be only log-transformed
 // hyperparameters, and then
@@ -232,28 +232,29 @@ func (gp *GP) Produce(x [][]float64) (
 // * inputs must be assigned to fields X, Y of gp.
 func (gp *GP) Observe(x []float64) float64 {
 	gp.defaults()
-	// Transform
-	for i := 0; i != gp.Simil.NTheta()+gp.Noise.NTheta(); i++ {
-		x[i] = math.Exp(x[i])
+
+	// Restore parameters from log scale
+	theta := x[:gp.Simil.NTheta()+gp.Noise.NTheta()]
+	for i := range theta {
+		theta[i] = math.Exp(theta[i])
 	}
 
 	// Destructure
-	x_ := x
-	copy(gp.ThetaSimil, model.Shift(&x_, gp.Simil.NTheta()))
-	copy(gp.ThetaNoise, model.Shift(&x_, gp.Noise.NTheta()))
-	withInputs := len(x_) > 0
-	if withInputs {
-		// Inputs are inferred as well as parameters,
-		// normally as a part of a larger model with priors
-		// on inputs.
-		n := len(x_) / (gp.NDim + 1)
+	copy(gp.ThetaSimil, model.Shift(&x, gp.Simil.NTheta()))
+	copy(gp.ThetaNoise, model.Shift(&x, gp.Noise.NTheta()))
+	withObs := len(x) > 0
+	if withObs {
+		// Observations are inferred as well as parameters,
+		// normally as a part of a larger model with priors on
+		// observations.
+		n := len(x) / (gp.NDim + 1)
 		gp.X = make([][]float64, n)
 		for i := range gp.X {
-			gp.X[i] = model.Shift(&x_, gp.NDim)
+			gp.X[i] = model.Shift(&x, gp.NDim)
 		}
-		gp.Y = model.Shift(&x_, n)
+		gp.Y = model.Shift(&x, n)
 	}
-	if len(x_) != 0 {
+	if len(x) != 0 {
 		panic("len(x)")
 	}
 
@@ -262,15 +263,15 @@ func (gp *GP) Observe(x []float64) float64 {
 		panic(err)
 	}
 
-	if !withInputs {
-		// If inputs are not inferred, we drop dK components
-		// corresponding to derivatives by inputs and outputs.
+	if !withObs {
+		// If observations are not inferred, we drop dK
+		// components corresponding to derivatives by inputs.
 		gp.dK = gp.dK[:gp.Simil.NTheta()+gp.Noise.NTheta()]
 	}
 
-	// Restore
-	for i := 0; i != gp.Simil.NTheta()+gp.Noise.NTheta(); i++ {
-		x[i] = math.Log(x[i])
+	// Transform parameters back to log scale
+	for i := range theta {
+		theta[i] = math.Log(theta[i])
 	}
 
 	return gp.LML()
@@ -281,26 +282,26 @@ func (gp *GP) Observe(x []float64) float64 {
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
 	var (
-		grad       []float64
-		withInputs bool
+		grad    []float64
+		withObs bool
 	)
 	switch {
 	case len(gp.dK) == gp.Simil.NTheta()+gp.Noise.NTheta():
-		// optimizimg hyperparameters only
+		// inferring hyperparameters only
 		grad = make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 	case len(gp.dK) == gp.Simil.NTheta()+gp.Noise.NTheta()+
 		len(gp.X)*gp.NDim:
-		// optimizing everything
+		// inferring everything
 		grad = make([]float64,
 			gp.Simil.NTheta()+gp.Noise.NTheta()+len(gp.X)*(gp.NDim+1))
-		withInputs = true
+		withObs = true
 	default:
 		// cannot happen
 		panic("len(gp.dK)")
 	}
 
 	if len(gp.X) == 0 {
-		// no inputs, return zero gradient
+		// no observations, return zero gradient
 		return grad
 	}
 
@@ -322,7 +323,7 @@ func (gp *GP) Gradient() []float64 {
 		grad[i] = 0.5 * mat.Trace(c)
 	}
 
-	if withInputs {
+	if withObs {
 		// Gradient by outputs
 		for i := range gp.Y {
 			grad[len(gp.dK)+i] = -gp.alpha.AtVec(i)
