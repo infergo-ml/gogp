@@ -26,8 +26,9 @@ func (m *Priors) Observe(x []float64) float64 {
 
 	ll := 0.
 
-	// The noise is scaled by 0.1.
-	ll += Normal.Logp(0, 1, x[s])
+	// The noise standard deviation is less than 1, in wide
+	// margins.
+	ll += Normal.Logp(-1, 2, x[s])
 
 	// Output scale is mostly less than 1.
 	ll += Normal.Logp(-1, 1, x[c])
@@ -37,7 +38,7 @@ func (m *Priors) Observe(x []float64) float64 {
 
 	// Instead of Gaussian, we assume Laplacian noise.
 	for i := range m.Y {
-		ll += Expon.Logp(1/(0.1*math.Exp(x[s])),
+		ll += Expon.Logp(1/math.Exp(x[s]),
 			math.Abs(m.Y[i]-x[i0+n+i]))
 	}
 
