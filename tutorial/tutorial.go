@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"gonum.org/v1/gonum/optimize"
 	"io"
+	"math"
 	"os"
 	"strconv"
 )
@@ -125,11 +126,8 @@ func Evaluate(
 		}
 		fmt.Fprintf(wtr, "%f,%f,%f,%f,%f",
 			Y[end], mu[0], sigma[0], lml0, lml)
-		for i := range gp.ThetaSimil {
-			fmt.Fprintf(wtr, ",%f", gp.ThetaSimil[i])
-		}
-		for i := range gp.ThetaNoise {
-			fmt.Fprintf(wtr, ",%f", gp.ThetaNoise[i])
+		for i := 0; i != len(theta); i++ {
+			fmt.Fprintf(wtr, ",%f", math.Exp(x[i]))
 		}
 		fmt.Fprintln(wtr)
 	}
