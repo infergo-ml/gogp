@@ -81,7 +81,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		return nil
 	}
 
-	// Similariance matrix
+	// Covariance matrix
 	K := mat.NewSymDense(len(x), nil)
 
 	for i := range gp.dK {
