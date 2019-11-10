@@ -8,6 +8,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"gonum.org/v1/gonum/optimize"
+	"gonum.org/v1/gonum/stat"
 	"io"
 	"math"
 	"os"
@@ -46,6 +47,12 @@ func Evaluate(
 		return err
 	}
 	fmt.Fprintln(os.Stderr, "done")
+
+	// Normalize Y
+	meany, stdy := stat.MeanStdDev(Y, nil)
+	for i := range Y {
+		Y[i] = (Y[i] - meany)/stdy
+	}
 
 	// Forecast one step out of sample, iteratively.
 	// Output data augmented with predictions.

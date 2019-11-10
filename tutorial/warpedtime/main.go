@@ -56,8 +56,10 @@ func (m *Model) Gradient() []float64 {
 		m.gGrad[i] += m.pGrad[i]
 	}
 
-	// Wipe gradients of the last input and all outputs
-	ixlast := m.gp.Simil.NTheta() + m.gp.Noise.NTheta() + len(m.gp.X) - 1
+	// Wipe gradients of the first, last input and all outputs
+	ixfirst := m.gp.Simil.NTheta() + m.gp.Noise.NTheta()
+	ixlast := ixfirst + len(m.gp.X) - 1
+	m.gGrad[ixfirst] = 0
 	for i := ixlast; i != len(m.gGrad); i++ {
 		m.gGrad[i] = 0
 	}
