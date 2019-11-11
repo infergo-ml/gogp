@@ -140,7 +140,7 @@ const (
 )
 
 func TestElementalModel(t *testing.T) {
-	for i, c := range []struct {
+	for _, c := range []struct {
 		name string
 		gp   *GP
 		x    []float64
@@ -171,10 +171,10 @@ func TestElementalModel(t *testing.T) {
 			gp: &GP{
 				NDim:  1,
 				Simil: kernel.Normal,
-				Noise: kernel.ConstantNoise(0),
-			},
-			x:  []float64{0, 0, 1, 1, 0},
-			ll: -2.399528,
+			   Noise: kernel.ConstantNoise(0),
+		    },
+		    x:  []float64{0, 0, 1, 1, 0},
+		    ll: -2.399528,
 		},
 		{
 			name: "withnoise",
@@ -183,8 +183,18 @@ func TestElementalModel(t *testing.T) {
 				Simil: kernel.Normal,
 				Noise: kernel.ConstantNoise(0.1),
 			},
-			x:  []float64{0, -2, -1, 1, 0},
-			ll: -2.405074,
+			x:  []float64{1, -2, -1, 1, 0},
+			ll: -2.927512,
+		},
+		{
+			name: "uninoise",
+			gp: &GP{
+				NDim:  1,
+				Simil: kernel.Normal,
+				Noise: kernel.UniformNoise,
+			},
+			x:  []float64{1, 1, -2, -1, 1, 0},
+			ll: -3.262048,
 		},
 	} {
 		ll := c.gp.Observe(c.x)
@@ -205,8 +215,8 @@ func TestElementalModel(t *testing.T) {
 			dldx := (llj - ll)/dx
 			c.x[j] = x0
 			if math.Abs(dll[j] - dldx) > eps {
-				t.Errorf("%d: dl/dx%d mismatch: got %.4f, want %.4f",
-					i, j, dldx, dll[j])
+				t.Errorf("%s: dl/dx%d mismatch: got %.4f, want %.4f",
+					c.name, j, dldx, dll[j])
 			}
 		}
 
@@ -223,17 +233,6 @@ func TestElementalModel(t *testing.T) {
 				" got %d, want %d",
 				c.name, len(dll), c.gp.Simil.NTheta()+c.gp.Noise.NTheta())
 			continue
-		}
-		for j := range x {
-			x0 := x[j]
-			x[j] += dx
-			llj := c.gp.Observe(x)
-			dldx := (llj - ll)/dx
-			x[j] = x0
-			if math.Abs(dll[j] - dldx) > eps {
-				t.Errorf("%d: dl/dx%d mismatch (hyperparameters only): got %.4f, want %.4f",
-					i, j, dldx, dll[j])
-			}
 		}
 	}
 }
