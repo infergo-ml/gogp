@@ -32,6 +32,8 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
+	flag.StringVar(&tutorial.ALG, "a", tutorial.ALG, "optimization algorithm "+
+		"(adam or lbfgs)")
 	flag.Float64Var(&LOGSIGMA, "logsigma", LOGSIGMA,
 		"log standard deviation of relative step")
 	flag.BoolVar(&SHOWWARP, "show-warp", SHOWWARP,

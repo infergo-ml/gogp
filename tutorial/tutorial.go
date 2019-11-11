@@ -16,11 +16,14 @@ import (
 )
 
 var (
-	NITER          = 0
-	EPS    float64 = 0
-	NTASKS         = 0
 	OPTINP         = false
 	MINOPT         = 0
+
+	ALG        = "lbfgs" 
+	EPOCHS     = 1000  // epochs or major iterations
+	THRESHOLD  = 1E-6  // gradient threshold
+	RATE       = 0.01  // learning rate (for Adam)
+	NTASKS     = 0
 )
 
 // Evaluate evaluates Gaussian process on CSV data.  One step
@@ -78,41 +81,60 @@ func Evaluate(
 		} else {
 			// If only the hyperparameters are optimized, the
 			// inputs are stored in the fields of the GP.
-			x = theta
+			x = make([]float64, len(theta))
+			copy(x, theta)
 			gp.X = Xi
 			gp.Y = Yi
 		}
-
-		// Optimize the parameters
-		Func, Grad := infer.FuncGrad(m)
-		p := optimize.Problem{Func: Func, Grad: Grad}
 
 		// Initial log likelihood
 		lml0 := m.Observe(x)
 		model.DropGradient(m)
 
-		// For some kernels and data, the optimizing of
-		// hyperparameters does not make sense with too few
-		// points.
 		if len(gp.X) > MINOPT {
-			result, err := optimize.Minimize(
-				p, x, &optimize.Settings{
-					MajorIterations:   NITER,
-					GradientThreshold: EPS,
-					Concurrent:        NTASKS,
-				}, nil)
-			// We do not need the optimizer to `officially'
-			// converge, a few iterations usually bring most
-			// of the improvement. However, in pathological
-			// cases even a single iteration does not succeed,
-			// and we want to report that.
-			if err != nil && result.Stats.MajorIterations == 1 {
-				// There was a problem and the optimizer stopped
-				// on first iteration.
-				fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
+			switch ALG {
+			case "lbfgs":
+				// Optimize the parameters
+				Func, Grad := infer.FuncGrad(m)
+				p := optimize.Problem{Func: Func, Grad: Grad}
+
+
+				// For some kernels and data, the optimizing of
+				// hyperparameters does not make sense with too few
+				// points.
+				result, err := optimize.Minimize(
+					p, x, &optimize.Settings{
+						MajorIterations:   EPOCHS,
+						GradientThreshold: THRESHOLD,
+						Concurrent:        NTASKS,
+					}, nil)
+				// We do not need the optimizer to `officially'
+				// converge, a few iterations usually bring most
+				// of the improvement. However, in pathological
+				// cases even a single iteration does not succeed,
+				// and we want to report that.
+				if err != nil && result.Stats.MajorIterations <= 10 {
+					// There was a problem and the optimizer stopped
+					// on first iteration.
+					fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
+				}
+				x = result.X
+			case "adam":
+				opt := &infer.Adam{Rate: RATE}
+				epoch := 0
+				Epochs:
+				for ; epoch != EPOCHS; epoch++ {
+					_, grad := opt.Step(m, x)
+					for i := range grad {
+						if math.Abs(grad[i]) >= THRESHOLD {
+							continue Epochs
+						}
+					}
+					break Epochs
+				}
 			}
-			x = result.X
 		}
+	
 
 		// Final log likelihood
 		lml := m.Observe(x)

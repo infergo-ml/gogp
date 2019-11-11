@@ -25,6 +25,8 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
+	flag.StringVar(&tutorial.ALG, "a", tutorial.ALG, "optimization algorithm "+
+		"(adam or lbfgs)")
 }
 
 func main() {
