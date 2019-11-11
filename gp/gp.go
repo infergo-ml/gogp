@@ -117,7 +117,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 				n := gp.Noise.Observe(nkargs)
 				ngrad := model.Gradient(gp.Noise)
 				for i := 0; i != gp.Noise.NTheta(); i++ {
-					kgrad[i] *= gp.ThetaNoise[i]
+					ngrad[i] *= gp.ThetaNoise[i]
 				}
 				gp.addTodK(i, j, gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
 				gp.addTodK(i, j,
