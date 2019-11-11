@@ -117,14 +117,14 @@ func TestProduce(t *testing.T) {
 				c.name, len(sigma), len(c.sigma))
 		}
 		for i := range mu {
-			if math.Abs(mu[i]-c.mu[i]) > 1E-6 {
+			if math.Abs(mu[i]-c.mu[i]) > 1e-6 {
 				t.Errorf("%s: wrong mu: got %v, want %v",
 					c.name, mu, c.mu)
 				break
 			}
 		}
 		for i := range sigma {
-			if math.Abs(sigma[i]-c.sigma[i]) > 1E-6 {
+			if math.Abs(sigma[i]-c.sigma[i]) > 1e-6 {
 				t.Errorf("%s: wrong sigma: got %v, want %v",
 					c.name, sigma, c.sigma)
 				break
@@ -192,7 +192,7 @@ func TestElementalModel(t *testing.T) {
 	} {
 		ll := c.gp.Observe(c.x)
 		dll := c.gp.Gradient()
-		if math.Abs(ll-c.ll) >= 1E-6 {
+		if math.Abs(ll-c.ll) >= 1e-6 {
 			t.Errorf("%s: wrong log-likelihood: got %f, want %f",
 				c.name, ll, c.ll)
 		}
@@ -202,7 +202,7 @@ func TestElementalModel(t *testing.T) {
 			continue
 		}
 		for i := range dll {
-			if math.Abs(dll[i]-c.dll[i]) >= 1E-6 {
+			if math.Abs(dll[i]-c.dll[i]) >= 1e-6 {
 				t.Errorf("%s: wrong gradient: got %v, want %v",
 					c.name, dll, c.dll)
 				break
@@ -213,7 +213,7 @@ func TestElementalModel(t *testing.T) {
 		x := c.x[:c.gp.Simil.NTheta()+c.gp.Noise.NTheta()]
 		ll = c.gp.Observe(x)
 		dll = c.gp.Gradient()
-		if math.Abs(ll-c.ll) >= 1E-6 {
+		if math.Abs(ll-c.ll) >= 1e-6 {
 			t.Errorf("%s: wrong log-likelihood (hyperparameters only):"+
 				" got %f, want %f", c.name, ll, c.ll)
 		}
@@ -224,7 +224,7 @@ func TestElementalModel(t *testing.T) {
 			continue
 		}
 		for i := range dll {
-			if math.Abs(dll[i]-c.dll[i]) >= 1E-6 {
+			if math.Abs(dll[i]-c.dll[i]) >= 1e-6 {
 				t.Errorf("%s: wrong gradient (hyperparameters only):"+
 					" got %v, want %v",
 					c.name, dll,

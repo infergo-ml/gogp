@@ -11,20 +11,26 @@ import (
 	"gonum.org/v1/gonum/stat"
 	"io"
 	"math"
+	"math/rand"
 	"os"
 	"strconv"
+	"time"
 )
 
 var (
-	OPTINP         = false
-	MINOPT         = 0
-
-	ALG        = "lbfgs" 
-	EPOCHS     = 1000  // epochs or major iterations
-	THRESHOLD  = 1E-6  // gradient threshold
-	RATE       = 0.01  // learning rate (for Adam)
-	NTASKS     = 0
+	OPTINP    = false
+	MINOPT    = 0
+	ALG       = "lbfgs"
+	ITERS     = 1000 // major iterations
+	MINITERS  = 10   // minimum iterations to accept in lbfgs
+	THRESHOLD = 1e-6 // gradient threshold
+	RATE      = 0.01 // learning rate (for Adam)
+	NTASKS    = 0
 )
+
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
 
 // Evaluate evaluates Gaussian process on CSV data.  One step
 // out of sample forecast is recorded for each time point, along
@@ -54,7 +60,7 @@ func Evaluate(
 	// Normalize Y
 	meany, stdy := stat.MeanStdDev(Y, nil)
 	for i := range Y {
-		Y[i] = (Y[i] - meany)/stdy
+		Y[i] = (Y[i] - meany) / stdy
 	}
 
 	// Forecast one step out of sample, iteratively.
@@ -87,6 +93,11 @@ func Evaluate(
 			gp.Y = Yi
 		}
 
+		// Randomize the initial values of hyperparameters
+		for i := range theta {
+			x[i] += 0.1 * rand.NormFloat64()
+		}
+
 		// Initial log likelihood
 		lml0 := m.Observe(x)
 		model.DropGradient(m)
@@ -98,32 +109,33 @@ func Evaluate(
 				Func, Grad := infer.FuncGrad(m)
 				p := optimize.Problem{Func: Func, Grad: Grad}
 
-
 				// For some kernels and data, the optimizing of
 				// hyperparameters does not make sense with too few
 				// points.
 				result, err := optimize.Minimize(
 					p, x, &optimize.Settings{
-						MajorIterations:   EPOCHS,
+						MajorIterations:   ITERS,
 						GradientThreshold: THRESHOLD,
 						Concurrent:        NTASKS,
 					}, nil)
 				// We do not need the optimizer to `officially'
 				// converge, a few iterations usually bring most
 				// of the improvement. However, in pathological
-				// cases even a single iteration does not succeed,
+				// cases even a few iterations do not succeed,
 				// and we want to report that.
-				if err != nil && result.Stats.MajorIterations <= 10 {
+				if err != nil && result.Stats.MajorIterations <= MINITERS {
 					// There was a problem and the optimizer stopped
-					// on first iteration.
-					fmt.Fprintf(os.Stderr, "Failed to optimize: %v\n", err)
+					// too early.
+					fmt.Fprintf(os.Stderr,
+						"%d: stuck after %d iterations: %v\n",
+						end, result.Stats.MajorIterations, err)
 				}
 				x = result.X
 			case "adam":
 				opt := &infer.Adam{Rate: RATE}
 				epoch := 0
-				Epochs:
-				for ; epoch != EPOCHS; epoch++ {
+			Epochs:
+				for ; epoch != ITERS; epoch++ {
 					_, grad := opt.Step(m, x)
 					for i := range grad {
 						if math.Abs(grad[i]) >= THRESHOLD {
@@ -134,7 +146,6 @@ func Evaluate(
 				}
 			}
 		}
-	
 
 		// Final log likelihood
 		lml := m.Observe(x)

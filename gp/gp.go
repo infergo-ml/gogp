@@ -34,7 +34,7 @@ type GP struct {
 // Default noise, present for numerical stability; can
 // be zeroed by using ConstantNoise(0.) as the noise
 // kernel.
-const nonoise = 1E-10
+const nonoise = 1e-10
 
 func (gp *GP) defaults() {
 	if gp.Noise == nil {
