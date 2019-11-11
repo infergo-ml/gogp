@@ -133,13 +133,18 @@ func TestProduce(t *testing.T) {
 	}
 }
 
+// Difference and precision for numerical derivative
+const (
+	dx = 1E-8
+	eps = 1E-4
+)
+
 func TestElementalModel(t *testing.T) {
-	for _, c := range []struct {
+	for i, c := range []struct {
 		name string
 		gp   *GP
 		x    []float64
 		ll   float64
-		dll  []float64
 	}{
 		{
 			name: "prior",
@@ -150,7 +155,6 @@ func TestElementalModel(t *testing.T) {
 			},
 			x:   []float64{0},
 			ll:  0,
-			dll: []float64{0},
 		},
 		{
 			name: "single",
@@ -161,7 +165,6 @@ func TestElementalModel(t *testing.T) {
 			},
 			x:   []float64{0, 0, 1},
 			ll:  -1.418939,
-			dll: []float64{-0, 0, -1},
 		},
 		{
 			name: "nonoise",
@@ -172,9 +175,6 @@ func TestElementalModel(t *testing.T) {
 			},
 			x:  []float64{0, 0, 1, 1, 0},
 			ll: -2.399528,
-			dll: []float64{-0.338697,
-				-0.338697, 0.338697,
-				-1.581977, 0.959517},
 		},
 		{
 			name: "withnoise",
@@ -185,9 +185,6 @@ func TestElementalModel(t *testing.T) {
 			},
 			x:  []float64{0, -2, -1, 1, 0},
 			ll: -2.405074,
-			dll: []float64{-0.133775,
-				-0.133775, 0.133775,
-				-1.306226, 0.720242},
 		},
 	} {
 		ll := c.gp.Observe(c.x)
@@ -196,16 +193,20 @@ func TestElementalModel(t *testing.T) {
 			t.Errorf("%s: wrong log-likelihood: got %f, want %f",
 				c.name, ll, c.ll)
 		}
-		if len(dll) != len(c.dll) {
+		if len(dll) != len(c.x) {
 			t.Errorf("%s: wrong gradient size: got %d, want %d",
-				c.name, len(dll), len(c.dll))
+				c.name, len(dll), len(c.x))
 			continue
 		}
-		for i := range dll {
-			if math.Abs(dll[i]-c.dll[i]) >= 1e-6 {
-				t.Errorf("%s: wrong gradient: got %v, want %v",
-					c.name, dll, c.dll)
-				break
+		for j := range c.x {
+			x0 := c.x[j]
+			c.x[j] += dx
+			llj := c.gp.Observe(c.x)
+			dldx := (llj - ll)/dx
+			c.x[j] = x0
+			if math.Abs(dll[j] - dldx) > eps {
+				t.Errorf("%d: dl/dx%d mismatch: got %.4f, want %.4f",
+					i, j, dldx, dll[j])
 			}
 		}
 
@@ -223,13 +224,15 @@ func TestElementalModel(t *testing.T) {
 				c.name, len(dll), c.gp.Simil.NTheta()+c.gp.Noise.NTheta())
 			continue
 		}
-		for i := range dll {
-			if math.Abs(dll[i]-c.dll[i]) >= 1e-6 {
-				t.Errorf("%s: wrong gradient (hyperparameters only):"+
-					" got %v, want %v",
-					c.name, dll,
-					c.dll[:c.gp.Simil.NTheta()+c.gp.Noise.NTheta()])
-				break
+		for j := range x {
+			x0 := x[j]
+			x[j] += dx
+			llj := c.gp.Observe(x)
+			dldx := (llj - ll)/dx
+			x[j] = x0
+			if math.Abs(dll[j] - dldx) > eps {
+				t.Errorf("%d: dl/dx%d mismatch (hyperparameters only): got %.4f, want %.4f",
+					i, j, dldx, dll[j])
 			}
 		}
 	}
