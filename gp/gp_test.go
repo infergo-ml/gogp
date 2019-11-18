@@ -30,7 +30,7 @@ func TestProduce(t *testing.T) {
 			sigma: []float64{1},
 		},
 		{
-			name: "1 self",
+			name: "self",
 			gp: &GP{
 				NDim:       1,
 				Simil:      kernel.Normal,
@@ -42,6 +42,20 @@ func TestProduce(t *testing.T) {
 			z:     [][]float64{{0}},
 			mu:    []float64{1},
 			sigma: []float64{0},
+		},
+		{
+			name: "next",
+			gp: &GP{
+				NDim:       1,
+				Simil:      kernel.Normal,
+				Noise:      kernel.ConstantNoise(0),
+				ThetaSimil: []float64{1.},
+			},
+			x:     [][]float64{{0}},
+			y:     []float64{0},
+			z:     [][]float64{{1}},
+			mu:    []float64{0},
+			sigma: []float64{0.795060},
 		},
 		{
 			name: "two selves",
