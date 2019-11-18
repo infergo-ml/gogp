@@ -1,8 +1,8 @@
 package kernel
 
 import (
-	"bitbucket.org/dtolpin/infergo/ad"
 	"math"
+	"bitbucket.org/dtolpin/infergo/ad"
 )
 
 type normal struct{}
@@ -66,8 +66,8 @@ func (periodic) Cov(l, p, xa, xb float64) float64 {
 }
 
 const (
-	sqrt3 = 1.7320508075688772
-	sqrt5 = 2.2360679774997900
+	sqrt3	= 1.7320508075688772
+	sqrt5	= 2.2360679774997900
 )
 
 type matern32 struct{}

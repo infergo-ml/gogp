@@ -10,7 +10,9 @@ func (nk ConstantNoise) Observe(x []float64) float64 {
 	} else {
 		ad.Setup(x)
 	}
-	return ad.Return(ad.Value(float64(nk)))
+	var std float64
+	ad.Assignment(&std, ad.Value(float64(nk)))
+	return ad.Return(ad.Arithmetic(ad.OpMul, &std, &std))
 }
 
 func (ConstantNoise) NTheta() int {
@@ -27,7 +29,7 @@ func (nk uniformNoise) Observe(x []float64) float64 {
 	} else {
 		ad.Setup(x)
 	}
-	return ad.Return(&x[0])
+	return ad.Return(ad.Arithmetic(ad.OpMul, &x[0], &x[0]))
 }
 
 func (uniformNoise) NTheta() int {

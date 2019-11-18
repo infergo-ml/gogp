@@ -110,8 +110,8 @@ func TestProduce(t *testing.T) {
 			x:     [][]float64{{0}, {1}},
 			y:     []float64{1, -1},
 			z:     [][]float64{{-2.}, {3.}},
-			mu:    []float64{0.251741, -0.251741},
-			sigma: []float64{0.988979, 0.988979},
+			mu:    []float64{0.307895, -0.307895},
+			sigma: []float64{0.987037, 0.987037},
 		},
 	} {
 		err := c.gp.Absorb(c.x, c.y)
@@ -198,7 +198,7 @@ func TestElementalModel(t *testing.T) {
 				Noise: kernel.ConstantNoise(0.1),
 			},
 			x:  []float64{1, -2, -1, 1, 0},
-			ll: -2.927512,
+			ll: -4.321055,
 		},
 		{
 			name: "uninoise",
@@ -207,8 +207,8 @@ func TestElementalModel(t *testing.T) {
 				Simil: kernel.Normal,
 				Noise: kernel.UniformNoise,
 			},
-			x:  []float64{1, 1, -2, -1, 1, 0},
-			ll: -3.262048,
+			x:  []float64{1, 1, -1, -1, 1, 0},
+			ll: -4.018110,
 		},
 	} {
 		ll := c.gp.Observe(c.x)
