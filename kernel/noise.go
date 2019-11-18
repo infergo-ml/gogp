@@ -30,7 +30,8 @@ func (ConstantNoise) NTheta() int {
 }
 
 // UniformNoise is a noise kernel for learning the same noise
-// variance for all points.
+// for all points. UniformNoise has a single parameter --- the
+// standard error.
 type uniformNoise struct{}
 
 var UniformNoise uniformNoise
