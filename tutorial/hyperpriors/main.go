@@ -74,9 +74,9 @@ func main() {
 	}
 
 	gp := &gp.GP{
-		NDim:  1,
-		Simil: Simil,
-		Noise: Noise,
+		NDim:     1,
+		Simil:    Simil,
+		Noise:    Noise,
 		Parallel: ad.IsMTSafe(),
 	}
 	m := &Model{

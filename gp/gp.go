@@ -131,16 +131,16 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 
 	if gp.Parallel {
 		// Computing covariances in parallel
-		kpool := sync.Pool {
+		kpool := sync.Pool{
 			New: func() interface{} {
 				kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
 				copy(kargs, gp.ThetaSimil)
 				return kargs
 			},
 		}
-		npool := sync.Pool {
+		npool := sync.Pool{
 			New: func() interface{} {
-				nargs := make([]float64, gp.Noise.NTheta() + gp.NDim)
+				nargs := make([]float64, gp.Noise.NTheta()+gp.NDim)
 				copy(nargs, gp.ThetaNoise)
 				return nargs
 			},
@@ -148,7 +148,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		wait := make(chan bool, len(x))
 
 		for i := 0; i != len(x); i++ {
-			go func (i int) {
+			go func(i int) {
 				kargs := kpool.Get().([]float64)
 				copy(kargs[gp.Simil.NTheta():], x[i])
 				for j := i; j != len(x); j++ {
@@ -164,7 +164,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 
 		// Wait for all goroutines to finish
 		for i := 0; i != len(x); i++ {
-			<- wait
+			<-wait
 		}
 	} else {
 		kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
