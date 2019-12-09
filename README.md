@@ -11,7 +11,7 @@ automatic differentation of Infergo.
 
 # Examples
 
-More examples in the [tutorial](tutoral/) folder.
+More examples in the [tutorial](/dtolpin/gogp/src/master/tutoral/) folder.
 
 ## Bare bones
 
