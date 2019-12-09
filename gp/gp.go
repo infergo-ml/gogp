@@ -130,7 +130,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	}
 
 	if gp.Parallel {
-		// Computing each covariance in Parallel
+		// Computing covariances in parallel
 		kpool := sync.Pool {
 			New: func() interface{} {
 				kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
@@ -145,7 +145,8 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 				return nargs
 			},
 		}
-		wait := make(chan bool, 1)
+		wait := make(chan bool, len(x))
+
 		for i := 0; i != len(x); i++ {
 			go func (i int) {
 				kargs := kpool.Get().([]float64)
@@ -160,6 +161,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 				wait <- true
 			}(i)
 		}
+
 		// Wait for all goroutines to finish
 		for i := 0; i != len(x); i++ {
 			<- wait
