@@ -48,7 +48,7 @@ func (m *Priors) Observe(x []float64) float64 {
 	ll += Normal.Logp(0, 2, x[l])
 
 	// The noise is scaled by 0.01 in the kernel.
-	ll += Normal.Logp(0, 1, x[s])
+	ll += Normal.Logp(0.5, 1, x[s])
 
 	//  We allow inputs to move slightly.
 	for i := range m.step {
