@@ -5,12 +5,17 @@ import (
 	"bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/hyperpriors/kernel/ad"
 	. "bitbucket.org/dtolpin/gogp/tutorial/hyperpriors/model/ad"
+	"bitbucket.org/dtolpin/infergo/ad"
 	"bitbucket.org/dtolpin/infergo/model"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+)
+
+var (
+	PARALLEL = false
 )
 
 func init() {
@@ -25,6 +30,7 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
+	flag.BoolVar(&PARALLEL, "p", PARALLEL, "compute covariance in parallel")
 }
 
 type Model struct {
@@ -63,10 +69,15 @@ func main() {
 		panic("usage")
 	}
 
+	if PARALLEL {
+		ad.MTSafeOn()
+	}
+
 	gp := &gp.GP{
 		NDim:  1,
 		Simil: Simil,
 		Noise: Noise,
+		Parallel: ad.IsMTSafe(),
 	}
 	m := &Model{
 		gp:     gp,
