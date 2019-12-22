@@ -2,9 +2,14 @@ package gp
 
 import (
 	"bitbucket.org/dtolpin/gogp/kernel/ad"
+	"bitbucket.org/dtolpin/infergo/ad"
 	"math"
 	"testing"
 )
+
+func init() {
+	ad.MTSafeOn()
+}
 
 func TestProduce(t *testing.T) {
 	for _, c := range []struct {
@@ -114,34 +119,46 @@ func TestProduce(t *testing.T) {
 			sigma: []float64{0.987037, 0.987037},
 		},
 	} {
-		err := c.gp.Absorb(c.x, c.y)
-		if err != nil {
-			t.Fatalf("%s: absorb: %v", c.name, err)
-		}
-		mu, sigma, err := c.gp.Produce(c.z)
-		if err != nil {
-			t.Fatalf("%s: produce: %v", c.name, err)
-		}
-		if len(mu) != len(c.mu) {
-			t.Errorf("%s: wrong len(mu): got %d, want %d",
-				c.name, len(mu), len(c.mu))
-		}
-		if len(sigma) != len(c.sigma) {
-			t.Errorf("%s: wrong len(sigma): got %d, want %d",
-				c.name, len(sigma), len(c.sigma))
-		}
-		for i := range mu {
-			if math.Abs(mu[i]-c.mu[i]) > 1e-6 {
-				t.Errorf("%s: wrong mu: got %v, want %v",
-					c.name, mu, c.mu)
-				break
+		warnedParallel := false
+		for _, parallel := range []bool{false, true} {
+			if parallel && !ad.IsMTSafe() {
+				if !warnedParallel {
+					t.Log("parallel computation is not supported")
+					warnedParallel = true
+					continue
+				}
+
 			}
-		}
-		for i := range sigma {
-			if math.Abs(sigma[i]-c.sigma[i]) > 1e-6 {
-				t.Errorf("%s: wrong sigma: got %v, want %v",
-					c.name, sigma, c.sigma)
-				break
+			c.gp.Parallel = parallel
+			err := c.gp.Absorb(c.x, c.y)
+			if err != nil {
+				t.Fatalf("%s: absorb: %v", c.name, err)
+			}
+			mu, sigma, err := c.gp.Produce(c.z)
+			if err != nil {
+				t.Fatalf("%s: produce: %v", c.name, err)
+			}
+			if len(mu) != len(c.mu) {
+				t.Errorf("%s: wrong len(mu): got %d, want %d",
+					c.name, len(mu), len(c.mu))
+			}
+			if len(sigma) != len(c.sigma) {
+				t.Errorf("%s: wrong len(sigma): got %d, want %d",
+					c.name, len(sigma), len(c.sigma))
+			}
+			for i := range mu {
+				if math.Abs(mu[i]-c.mu[i]) > 1e-6 {
+					t.Errorf("%s: wrong mu: got %v, want %v",
+						c.name, mu, c.mu)
+					break
+				}
+			}
+			for i := range sigma {
+				if math.Abs(sigma[i]-c.sigma[i]) > 1e-6 {
+					t.Errorf("%s: wrong sigma: got %v, want %v",
+						c.name, sigma, c.sigma)
+					break
+				}
 			}
 		}
 	}
@@ -149,8 +166,8 @@ func TestProduce(t *testing.T) {
 
 // Difference and precision for numerical derivative
 const (
-	dx = 1E-8
-	eps = 1E-4
+	dx  = 1e-8
+	eps = 1e-4
 )
 
 func TestElementalModel(t *testing.T) {
@@ -167,8 +184,8 @@ func TestElementalModel(t *testing.T) {
 				Simil: kernel.Normal,
 				Noise: kernel.ConstantNoise(0),
 			},
-			x:   []float64{0},
-			ll:  0,
+			x:  []float64{0},
+			ll: 0,
 		},
 		{
 			name: "single",
@@ -177,18 +194,18 @@ func TestElementalModel(t *testing.T) {
 				Simil: kernel.Normal,
 				Noise: kernel.ConstantNoise(0),
 			},
-			x:   []float64{0, 0, 1},
-			ll:  -1.418939,
+			x:  []float64{0, 0, 1},
+			ll: -1.418939,
 		},
 		{
 			name: "nonoise",
 			gp: &GP{
 				NDim:  1,
 				Simil: kernel.Normal,
-			   Noise: kernel.ConstantNoise(0),
-		    },
-		    x:  []float64{0, 0, 1, 1, 0},
-		    ll: -2.399528,
+				Noise: kernel.ConstantNoise(0),
+			},
+			x:  []float64{0, 0, 1, 1, 0},
+			ll: -2.399528,
 		},
 		{
 			name: "withnoise",
@@ -226,9 +243,9 @@ func TestElementalModel(t *testing.T) {
 			x0 := c.x[j]
 			c.x[j] += dx
 			llj := c.gp.Observe(c.x)
-			dldx := (llj - ll)/dx
+			dldx := (llj - ll) / dx
 			c.x[j] = x0
-			if math.Abs(dll[j] - dldx) > eps {
+			if math.Abs(dll[j]-dldx) > eps {
 				t.Errorf("%s: dl/dx%d mismatch: got %.4f, want %.4f",
 					c.name, j, dldx, dll[j])
 			}

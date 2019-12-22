@@ -4,11 +4,16 @@ import (
 	"bitbucket.org/dtolpin/gogp/gp"
 	"bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/barebones/kernel/ad"
+	"bitbucket.org/dtolpin/infergo/ad"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+)
+
+var (
+	PARALLEL = false
 )
 
 func init() {
@@ -25,6 +30,7 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
+	flag.BoolVar(&PARALLEL, "p", PARALLEL, "compute covariance in parallel")
 	flag.StringVar(&tutorial.ALG, "a", tutorial.ALG, "optimization algorithm "+
 		"(adam or lbfgs)")
 }
@@ -44,10 +50,15 @@ func main() {
 		panic("usage")
 	}
 
+	if PARALLEL {
+		ad.MTSafeOn()
+	}
+
 	gp := &gp.GP{
-		NDim:  1,
-		Simil: Simil,
-		Noise: Noise(0.01),
+		NDim:     1,
+		Simil:    Simil,
+		Noise:    Noise(0.01),
+		Parallel: ad.IsMTSafe(),
 		// 0.01 is the `prior', or rather the starting search
 		// point for input noise; see kernel/kernel.go for
 		// details. We might modify the initial point instead.

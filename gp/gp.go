@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gonum.org/v1/gonum/mat"
 	"math"
+	"sync"
 )
 
 // Type Kernel is the kernel interface, implemented by
@@ -24,6 +25,9 @@ type GP struct {
 	// inputs
 	X [][]float64 // inputs, for computing covariances
 	Y []float64   // outputs
+
+	// When true, covariances are computed in parallel
+	Parallel bool
 
 	// Cached computations
 	l     mat.Cholesky    // Cholesky decomposition of K
@@ -84,50 +88,95 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Covariance matrix
 	K := mat.NewSymDense(len(x), nil)
 
+	cov := func(i, j int, kargs, nargs []float64) {
+		copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[j])
+		k := gp.Simil.Observe(kargs)
+		kgrad := model.Gradient(gp.Simil)
+		for i := 0; i != gp.Simil.NTheta(); i++ {
+			kgrad[i] *= gp.ThetaSimil[i]
+		}
+		gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
+		gp.addTodK(i, j,
+			gp.Simil.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
+			gp.Simil.NTheta(),
+			gp.NDim,
+			kgrad)
+		gp.addTodK(i, j,
+			gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
+			gp.Simil.NTheta()+gp.NDim,
+			gp.NDim,
+			kgrad)
+		if j == i { // Diagonal, add noise
+			copy(nargs[gp.Noise.NTheta():], x[j])
+			n := gp.Noise.Observe(nargs)
+			ngrad := model.Gradient(gp.Noise)
+			for i := 0; i != gp.Noise.NTheta(); i++ {
+				ngrad[i] *= gp.ThetaNoise[i]
+			}
+			gp.addTodK(i, j, gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
+			gp.addTodK(i, j,
+				gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
+				gp.Noise.NTheta(),
+				gp.NDim,
+				ngrad)
+			k += n
+		}
+		K.SetSym(i, j, k)
+	}
+
 	for i := range gp.dK {
 		gp.dK[i] = mat.NewSymDense(len(x), nil)
 		gp.dK[i].Zero()
 	}
-	kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
-	nkargs := make([]float64, gp.Noise.NTheta()+gp.NDim)
-	copy(kargs, gp.ThetaSimil)
-	copy(nkargs, gp.ThetaNoise)
-	for i := 0; i != len(x); i++ {
-		copy(kargs[gp.Simil.NTheta():], x[i])
-		for j := i; j != len(x); j++ {
-			copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[j])
-			k := gp.Simil.Observe(kargs)
-			kgrad := model.Gradient(gp.Simil)
-			for i := 0; i != gp.Simil.NTheta(); i++ {
-				kgrad[i] *= gp.ThetaSimil[i]
-			}
-			gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
-			gp.addTodK(i, j,
-				gp.Simil.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
-				gp.Simil.NTheta(),
-				gp.NDim,
-				kgrad)
-			gp.addTodK(i, j,
-				gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
-				gp.Simil.NTheta()+gp.NDim,
-				gp.NDim,
-				kgrad)
-			if j == i { // Diagonal, add noise
-				copy(nkargs[gp.Noise.NTheta():], x[j])
-				n := gp.Noise.Observe(nkargs)
-				ngrad := model.Gradient(gp.Noise)
-				for i := 0; i != gp.Noise.NTheta(); i++ {
-					ngrad[i] *= gp.ThetaNoise[i]
+
+	if gp.Parallel {
+		// Computing covariances in parallel
+		kpool := sync.Pool{
+			New: func() interface{} {
+				kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
+				copy(kargs, gp.ThetaSimil)
+				return kargs
+			},
+		}
+		npool := sync.Pool{
+			New: func() interface{} {
+				nargs := make([]float64, gp.Noise.NTheta()+gp.NDim)
+				copy(nargs, gp.ThetaNoise)
+				return nargs
+			},
+		}
+		wait := make(chan bool, len(x))
+
+		for i := 0; i != len(x); i++ {
+			go func(i int) {
+				kargs := kpool.Get().([]float64)
+				copy(kargs[gp.Simil.NTheta():], x[i])
+				for j := i; j != len(x); j++ {
+					// TODO: use a Pool
+					nargs := npool.Get().([]float64)
+					cov(i, j, kargs, nargs)
+					npool.Put(nargs)
 				}
-				gp.addTodK(i, j, gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
-				gp.addTodK(i, j,
-					gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
-					gp.Noise.NTheta(),
-					gp.NDim,
-					ngrad)
-				k += n
+				kpool.Put(kargs)
+				wait <- true
+			}(i)
+		}
+
+		// Wait for all goroutines to finish
+		for i := 0; i != len(x); i++ {
+			<-wait
+		}
+	} else {
+		kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
+		nargs := make([]float64, gp.Noise.NTheta()+gp.NDim)
+		copy(kargs, gp.ThetaSimil)
+		copy(nargs, gp.ThetaNoise)
+
+		for i := 0; i != len(x); i++ {
+			copy(kargs[gp.Simil.NTheta():], x[i])
+			for j := i; j != len(x); j++ {
+				cov(i, j, kargs, nargs)
 			}
-			K.SetSym(i, j, k)
 		}
 	}
 
