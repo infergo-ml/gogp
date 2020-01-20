@@ -374,29 +374,23 @@ func (gp *GP) Gradient() []float64 {
 	}
 
 	// Gradient by parameters (and possibly inputs)
-	// TODO: parallelize computing grad
-	wait := make(chan bool, len(gp.dK))
+	// TODO: parallelize computing grad[i]
+	// α α^⊤
+	a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+	a.Mul(gp.alpha, gp.alpha.T())
+    // registers
+	r0 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+	r1 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+	r2 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
 	for i := range gp.dK {
-		go func(i int) {
-			// α α^⊤ ∂Σ/∂θ
-			a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-			a.Mul(gp.alpha, gp.alpha.T())
-			b := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-			b.Mul(a, gp.dK[i])
+		// α α^⊤ ∂Σ/∂θ
+		r0.Mul(a, gp.dK[i])
+		// Σ^−1 ∂Σ/∂θ
+		gp.l.SolveTo(r1, gp.dK[i])
+		// (α α^⊤ - Σ^−1) ∂Σ/∂θ
+		r2.Sub(r0, r1)
 
-			// Σ^−1 ∂Σ/∂θ
-			gp.l.SolveTo(a, gp.dK[i])
-
-			// (α α^⊤ - Σ^−1) ∂Σ/∂θ
-			c := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-			c.Sub(b, a)
-
-			grad[i] = 0.5 * mat.Trace(c)
-			wait <- true
-		}(i)
-	}
-	for range gp.dK {
-		<-wait
+		grad[i] = 0.5 * mat.Trace(r2)
 	}
 
 	if withObs {
