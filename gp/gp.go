@@ -54,7 +54,7 @@ func (gp *GP) defaults() {
 	}
 }
 
-// addTodK adds gradient components fromto the corresponding
+// addTodK adds gradient components to the corresponding
 // elements of dK.
 func (gp *GP) addTodK(
 	i, j int,
@@ -130,7 +130,9 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	}
 
 	if gp.Parallel {
-		// Computing covariances in parallel
+		// Computing covariances in parallel --- for small
+		// number of observations computing the covariance
+		// matrix dominates the computation time.
 		kpool := sync.Pool{
 			New: func() interface{} {
 				kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
@@ -147,12 +149,18 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		}
 		wait := make(chan bool, len(x))
 
+		// Ultimately, all elements of the covariance matrix
+		// could be computed in parallel; however, the number of
+		// goroutines would grow quadratically with the number
+		// of inputs. A compromise taken here is to compute 
+		// all covariances in each row of the (upper triangle of)
+		// the covariance matrix in parallel, spawning as many
+		// goroutines as there are inputs.
 		for i := 0; i != len(x); i++ {
 			go func(i int) {
 				kargs := kpool.Get().([]float64)
 				copy(kargs[gp.Simil.NTheta():], x[i])
 				for j := i; j != len(x); j++ {
-					// TODO: use a Pool
 					nargs := npool.Get().([]float64)
 					cov(i, j, kargs, nargs)
 					npool.Put(nargs)
@@ -163,7 +171,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		}
 
 		// Wait for all goroutines to finish
-		for i := 0; i != len(x); i++ {
+		for range x {
 			<-wait
 		}
 	} else {
@@ -219,7 +227,10 @@ func (gp *GP) Produce(x [][]float64) (
 	variance := mat.NewVecDense(len(x), nil)
 	covariance := mat.NewDense(len(x), len(x), nil)
 
+
 	// Prior variance does not depend on observations
+
+	// TODO: parallelize computation of variance
 	kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
 	copy(kargs, gp.ThetaSimil)
 	for i := 0; i != len(x); i++ {
@@ -234,6 +245,8 @@ func (gp *GP) Produce(x [][]float64) (
 	// if available
 	if len(gp.X) > 0 {
 		Kstar := mat.NewDense(len(gp.X), len(x), nil)
+
+		// TODO: parallelize computation of Kstar
 		kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
 		copy(kargs, gp.ThetaSimil)
 		for i := 0; i != len(gp.X); i++ {
@@ -274,11 +287,11 @@ func (gp *GP) Produce(x [][]float64) (
 }
 
 // Observe and Gradient implement Infergo's ElementalModel.
-// The model can be used on its own or, as a part of a larger
-// model, to infer the parameters.
+// The model can be used on its own or as a part of a larger
+// model to infer the parameters.
 
 // Observe computes log marginal likelihood of the parameters
-// given the observations. The argument is contatenation of
+// given the observations. The argument is the concatenation of
 // log-transformed hyperparameters, inputs, and outputs.
 //
 // Optionally, the input can be only log-transformed
@@ -361,21 +374,29 @@ func (gp *GP) Gradient() []float64 {
 	}
 
 	// Gradient by parameters (and possibly inputs)
+	// TODO: parallelize computing grad
+	wait := make(chan bool, len(gp.dK))
 	for i := range gp.dK {
-		// α α^⊤ ∂Σ/∂θ
-		a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-		a.Mul(gp.alpha, gp.alpha.T())
-		b := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-		b.Mul(a, gp.dK[i])
+		go func(i int) {
+			// α α^⊤ ∂Σ/∂θ
+			a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+			a.Mul(gp.alpha, gp.alpha.T())
+			b := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+			b.Mul(a, gp.dK[i])
 
-		// Σ^−1 ∂Σ/∂θ
-		gp.l.SolveTo(a, gp.dK[i])
+			// Σ^−1 ∂Σ/∂θ
+			gp.l.SolveTo(a, gp.dK[i])
 
-		// (α α^⊤ - Σ^−1) ∂Σ/∂θ
-		c := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-		c.Sub(b, a)
+			// (α α^⊤ - Σ^−1) ∂Σ/∂θ
+			c := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+			c.Sub(b, a)
 
-		grad[i] = 0.5 * mat.Trace(c)
+			grad[i] = 0.5 * mat.Trace(c)
+			wait <- true
+		}(i)
+	}
+	for range gp.dK {
+		<-wait
 	}
 
 	if withObs {
