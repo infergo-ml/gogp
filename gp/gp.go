@@ -113,7 +113,8 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 			for i := 0; i != gp.Noise.NTheta(); i++ {
 				ngrad[i] *= gp.ThetaNoise[i]
 			}
-			gp.addTodK(i, j, gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
+			gp.addTodK(i, j,
+				gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
 			gp.addTodK(i, j,
 				gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
 				gp.Noise.NTheta(),
@@ -133,6 +134,8 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		// Computing covariances in parallel --- for small
 		// number of observations computing the covariance
 		// matrix dominates the computation time.
+
+		// argument buffer pools
 		kpool := sync.Pool{
 			New: func() interface{} {
 				kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
@@ -147,16 +150,18 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 				return nargs
 			},
 		}
+
+		// sync channel
 		wait := make(chan bool, len(x))
 
 		// Ultimately, all elements of the covariance matrix
 		// could be computed in parallel; however, the number of
 		// goroutines would grow quadratically with the number
-		// of inputs. A compromise taken here is to compute 
+		// of inputs. A compromise taken here is to compute
 		// all covariances in each row of the (upper triangle of)
 		// the covariance matrix in parallel, spawning as many
 		// goroutines as there are inputs.
-		for i := 0; i != len(x); i++ {
+		for i := range x {
 			go func(i int) {
 				kargs := kpool.Get().([]float64)
 				copy(kargs[gp.Simil.NTheta():], x[i])
@@ -165,8 +170,8 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 					cov(i, j, kargs, nargs)
 					npool.Put(nargs)
 				}
-				kpool.Put(kargs)
 				wait <- true
+				kpool.Put(kargs)
 			}(i)
 		}
 
@@ -180,7 +185,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		copy(kargs, gp.ThetaSimil)
 		copy(nargs, gp.ThetaNoise)
 
-		for i := 0; i != len(x); i++ {
+		for i := range x {
 			copy(kargs[gp.Simil.NTheta():], x[i])
 			for j := i; j != len(x); j++ {
 				cov(i, j, kargs, nargs)
@@ -227,13 +232,10 @@ func (gp *GP) Produce(x [][]float64) (
 	variance := mat.NewVecDense(len(x), nil)
 	covariance := mat.NewDense(len(x), len(x), nil)
 
-
 	// Prior variance does not depend on observations
-
-	// TODO: parallelize computation of variance
 	kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
 	copy(kargs, gp.ThetaSimil)
-	for i := 0; i != len(x); i++ {
+	for i := range x {
 		copy(kargs[gp.Simil.NTheta():], x[i])
 		copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[i])
 		k := gp.Simil.Observe(kargs)
@@ -246,16 +248,53 @@ func (gp *GP) Produce(x [][]float64) (
 	if len(gp.X) > 0 {
 		Kstar := mat.NewDense(len(gp.X), len(x), nil)
 
-		// TODO: parallelize computation of Kstar
-		kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
-		copy(kargs, gp.ThetaSimil)
-		for i := 0; i != len(gp.X); i++ {
-			copy(kargs[gp.Simil.NTheta():], gp.X[i])
-			for j := 0; j != len(x); j++ {
-				copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[j])
-				k := gp.Simil.Observe(kargs)
-				model.DropGradient(gp.Simil)
-				Kstar.Set(i, j, k)
+		if gp.Parallel {
+			// Computing covariances in parallel --- for small
+			// number of observations computing the covariance
+			// matrix dominates the computation time.
+
+			// argument buffer pool
+			kpool := sync.Pool{
+				New: func() interface{} {
+					kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
+					copy(kargs, gp.ThetaSimil)
+					return kargs
+				},
+			}
+
+			// sync channel
+			wait := make(chan bool, len(x))
+
+			for i := range gp.X {
+				go func(i int) {
+					kargs := kpool.Get().([]float64)
+					copy(kargs[gp.Simil.NTheta():], gp.X[i])
+					for j := range x {
+						copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[j])
+						k := gp.Simil.Observe(kargs)
+						model.DropGradient(gp.Simil)
+						Kstar.Set(i, j, k)
+					}
+					wait <- true
+					kpool.Put(kargs)
+				}(i)
+			}
+
+			// Wait for all goroutines to finish
+			for range gp.X {
+				<-wait
+			}
+		} else {
+			kargs := make([]float64, gp.Simil.NTheta()+2*gp.NDim)
+			copy(kargs, gp.ThetaSimil)
+			for i := range gp.X {
+				copy(kargs[gp.Simil.NTheta():], gp.X[i])
+				for j := range x {
+					copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[j])
+					k := gp.Simil.Observe(kargs)
+					model.DropGradient(gp.Simil)
+					Kstar.Set(i, j, k)
+				}
 			}
 		}
 
@@ -374,23 +413,59 @@ func (gp *GP) Gradient() []float64 {
 	}
 
 	// Gradient by parameters (and possibly inputs)
-	// TODO: parallelize computing grad[i]
 	// α α^⊤
 	a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
 	a.Mul(gp.alpha, gp.alpha.T())
-    // registers
-	r0 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-	r1 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-	r2 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-	for i := range gp.dK {
-		// α α^⊤ ∂Σ/∂θ
-		r0.Mul(a, gp.dK[i])
-		// Σ^−1 ∂Σ/∂θ
-		gp.l.SolveTo(r1, gp.dK[i])
-		// (α α^⊤ - Σ^−1) ∂Σ/∂θ
-		r2.Sub(r0, r1)
+	if gp.Parallel {
+		// register pool
+		rpool := sync.Pool{
+			New: func() interface{} {
+				return mat.NewDense(len(gp.Y), len(gp.Y), nil)
+			},
+		}
+		// sync channel
+		wait := make(chan bool, len(gp.dK))
 
-		grad[i] = 0.5 * mat.Trace(r2)
+		for i := range gp.dK {
+			go func(i int) {
+				// registers
+				// α α^⊤ ∂Σ/∂θ
+				r0 := rpool.Get().(*mat.Dense)
+				r0.Mul(a, gp.dK[i])
+				// Σ^−1 ∂Σ/∂θ
+				r1 := rpool.Get().(*mat.Dense)
+				gp.l.SolveTo(r1, gp.dK[i])
+				// (α α^⊤ - Σ^−1) ∂Σ/∂θ
+				r2 := rpool.Get().(*mat.Dense)
+				r2.Sub(r0, r1)
+				rpool.Put(r0)
+				rpool.Put(r1)
+
+				grad[i] = 0.5 * mat.Trace(r2)
+				wait <- true
+				rpool.Put(r2)
+			}(i)
+		}
+
+		// Wait for all goroutines to finish
+		for range gp.dK {
+			<-wait
+		}
+	} else {
+		// registers
+		r0 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+		r1 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+		r2 := mat.NewDense(len(gp.Y), len(gp.Y), nil)
+		for i := range gp.dK {
+			// α α^⊤ ∂Σ/∂θ
+			r0.Mul(a, gp.dK[i])
+			// Σ^−1 ∂Σ/∂θ
+			gp.l.SolveTo(r1, gp.dK[i])
+			// (α α^⊤ - Σ^−1) ∂Σ/∂θ
+			r2.Sub(r0, r1)
+
+			grad[i] = 0.5 * mat.Trace(r2)
+		}
 	}
 
 	if withObs {
