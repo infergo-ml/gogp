@@ -19,11 +19,10 @@ type Kernel interface {
 // Type GP is the barebone implementation of GP.
 type GP struct {
 	NDim                   int       // dimensions
-	Simil, Noise           Kernel    // kernel
+	Simil, Noise           Kernel    // kernels
 	ThetaSimil, ThetaNoise []float64 // kernel parameters
 
-	// inputs
-	X [][]float64 // inputs, for computing covariances
+	X [][]float64 // inputs
 	Y []float64   // outputs
 
 	// When true, covariances are computed in parallel
