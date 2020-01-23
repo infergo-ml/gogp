@@ -18,7 +18,7 @@ type Kernel interface {
 
 // Type GP is the barebone implementation of GP.
 type GP struct {
-	NDim                   int       // dimensions
+	NDim                   int       // number of dimensions
 	Simil, Noise           Kernel    // kernels
 	ThetaSimil, ThetaNoise []float64 // kernel parameters
 
