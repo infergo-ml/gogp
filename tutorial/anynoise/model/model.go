@@ -19,7 +19,7 @@ func (m *Priors) Observe(x []float64) float64 {
 
 	n := len(x[i0:]) / 2
 	if len(m.Y) != n {
-		// First call, memoize initial distances between inputs
+		// First call, memoize initial outputs
 		m.Y = make([]float64, n)
 		copy(m.Y, x[i0+n:])
 	}
