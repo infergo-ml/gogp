@@ -29,6 +29,7 @@ type GP struct {
 	Parallel bool
 
 	// Cached computations
+	withObs bool          // true iff observations are inferred
 	l     mat.Cholesky    // Cholesky decomposition of K
 	alpha *mat.VecDense   // K^-1 y
 	dK    []*mat.SymDense // gradient of K
@@ -76,8 +77,13 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Remember the inputs
 	gp.X, gp.Y = x, y
 	// K's gradient by parameters and inputs
-	gp.dK = make([]*mat.SymDense,
-		gp.Simil.NTheta()+gp.Noise.NTheta()+gp.NDim*len(x))
+	if gp.withObs {
+		gp.dK = make([]*mat.SymDense,
+			gp.Simil.NTheta()+gp.Noise.NTheta()+gp.NDim*len(x))
+	} else {
+		gp.dK = make([]*mat.SymDense,
+			gp.Simil.NTheta()+gp.Noise.NTheta())
+	}
 
 	if len(x) == 0 {
 		// No observations
@@ -94,17 +100,19 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		for i := 0; i != gp.Simil.NTheta(); i++ {
 			kgrad[i] *= gp.ThetaSimil[i]
 		}
-		gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
-		gp.addTodK(i, j,
-			gp.Simil.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
-			gp.Simil.NTheta(),
-			gp.NDim,
-			kgrad)
-		gp.addTodK(i, j,
-			gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
-			gp.Simil.NTheta()+gp.NDim,
-			gp.NDim,
-			kgrad)
+		if gp.withObs {
+			gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
+			gp.addTodK(i, j,
+				gp.Simil.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
+				gp.Simil.NTheta(),
+				gp.NDim,
+				kgrad)
+			gp.addTodK(i, j,
+				gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
+				gp.Simil.NTheta()+gp.NDim,
+				gp.NDim,
+				kgrad)
+		}
 		if j == i { // Diagonal, add noise
 			copy(nargs[gp.Noise.NTheta():], x[j])
 			n := gp.Noise.Observe(nargs)
@@ -112,13 +120,15 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 			for i := 0; i != gp.Noise.NTheta(); i++ {
 				ngrad[i] *= gp.ThetaNoise[i]
 			}
-			gp.addTodK(i, j,
-				gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
-			gp.addTodK(i, j,
-				gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
-				gp.Noise.NTheta(),
-				gp.NDim,
-				ngrad)
+			if gp.withObs {
+				gp.addTodK(i, j,
+					gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
+				gp.addTodK(i, j,
+					gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
+					gp.Noise.NTheta(),
+					gp.NDim,
+					ngrad)
+			}
 			k += n
 		}
 		K.SetSym(i, j, k)
@@ -348,8 +358,8 @@ func (gp *GP) Observe(x []float64) float64 {
 	// Destructure
 	copy(gp.ThetaSimil, model.Shift(&x, gp.Simil.NTheta()))
 	copy(gp.ThetaNoise, model.Shift(&x, gp.Noise.NTheta()))
-	withObs := len(x) > 0
-	if withObs {
+	gp.withObs = len(x) > 0
+	if gp.withObs {
 		// Observations are inferred as well as parameters,
 		// normally as a part of a larger model with priors on
 		// observations.
@@ -369,12 +379,6 @@ func (gp *GP) Observe(x []float64) float64 {
 		panic(err)
 	}
 
-	if !withObs {
-		// If observations are not inferred, we drop dK
-		// components corresponding to derivatives by inputs.
-		gp.dK = gp.dK[:gp.Simil.NTheta()+gp.Noise.NTheta()]
-	}
-
 	// Transform parameters back to log scale
 	for i := range theta {
 		theta[i] = math.Log(theta[i])
@@ -387,23 +391,12 @@ func (gp *GP) Observe(x []float64) float64 {
 // respect to the parameters and the inputs (GPML:5.9):
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
-	var (
-		grad    []float64
-		withObs bool
-	)
-	switch {
-	case len(gp.dK) == gp.Simil.NTheta()+gp.Noise.NTheta():
-		// inferring hyperparameters only
-		grad = make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
-	case len(gp.dK) == gp.Simil.NTheta()+gp.Noise.NTheta()+
-		len(gp.X)*gp.NDim:
-		// inferring everything
+	var grad    []float64
+	if gp.withObs {
 		grad = make([]float64,
 			gp.Simil.NTheta()+gp.Noise.NTheta()+len(gp.X)*(gp.NDim+1))
-		withObs = true
-	default:
-		// cannot happen
-		panic("len(gp.dK)")
+	} else {
+		grad = make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 	}
 
 	if len(gp.X) == 0 {
@@ -467,7 +460,7 @@ func (gp *GP) Gradient() []float64 {
 		}
 	}
 
-	if withObs {
+	if gp.withObs {
 		// Gradient by outputs
 		for i := range gp.Y {
 			grad[len(gp.dK)+i] = -gp.alpha.AtVec(i)
