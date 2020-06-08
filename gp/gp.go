@@ -487,5 +487,9 @@ func (gp *GP) Gradient() []float64 {
 			grad[len(gp.dK)+i] = -gp.alpha.AtVec(i)
 		}
 	}
+
+	// forget dK to release memory
+	gp.dK = nil
+
 	return grad
 }
