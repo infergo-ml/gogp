@@ -29,10 +29,10 @@ type GP struct {
 	Parallel bool
 
 	// Cached computations
-	withObs bool          // true iff observations are inferred
-	l     mat.Cholesky    // Cholesky decomposition of K
-	alpha *mat.VecDense   // K^-1 y
-	dK    []*mat.SymDense // gradient of K
+	withObs bool            // true iff observations are inferred
+	l       mat.Cholesky    // Cholesky decomposition of K
+	alpha   *mat.VecDense   // K^-1 y
+	dK      []*mat.SymDense // gradient of K
 }
 
 // Default noise, present for numerical stability; can
@@ -391,7 +391,7 @@ func (gp *GP) Observe(x []float64) float64 {
 // respect to the parameters and the inputs (GPML:5.9):
 //   ∇L = ½ tr((α α^⊤ - Σ^−1) ∂Σ/∂θ), where α = Σ^-1 y
 func (gp *GP) Gradient() []float64 {
-	var grad    []float64
+	var grad []float64
 	if gp.withObs {
 		grad = make([]float64,
 			gp.Simil.NTheta()+gp.Noise.NTheta()+len(gp.X)*(gp.NDim+1))
