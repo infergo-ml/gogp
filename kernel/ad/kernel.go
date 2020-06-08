@@ -28,7 +28,7 @@ func (normal) Cov(l, xa, xb float64) float64 {
 	if ad.Called() {
 		ad.Enter(&l, &xa, &xb)
 	} else {
-		panic("Cov called outside Observe.")
+		panic("Cov called outside Observe")
 	}
 	var d float64
 	ad.Assignment(&d, ad.Arithmetic(ad.OpDiv, (ad.Arithmetic(ad.OpSub, &xa, &xb)), &l))
@@ -58,7 +58,7 @@ func (periodic) Cov(l, p, xa, xb float64) float64 {
 	if ad.Called() {
 		ad.Enter(&l, &p, &xa, &xb)
 	} else {
-		panic("Cov called outside Observe.")
+		panic("Cov called outside Observe")
 	}
 	var d float64
 	ad.Assignment(&d, ad.Arithmetic(ad.OpDiv, ad.Elemental(math.Sin, ad.Arithmetic(ad.OpDiv, ad.Arithmetic(ad.OpMul, ad.Value(math.Pi), ad.Elemental(math.Abs, ad.Arithmetic(ad.OpSub, &xa, &xb))), &p)), &l))
@@ -93,7 +93,7 @@ func (matern32) Cov(l, xa, xb float64) float64 {
 	if ad.Called() {
 		ad.Enter(&l, &xa, &xb)
 	} else {
-		panic("Cov called outside Observe.")
+		panic("Cov called outside Observe")
 	}
 	var d float64
 	ad.Assignment(&d, ad.Arithmetic(ad.OpDiv, ad.Elemental(math.Abs, ad.Arithmetic(ad.OpSub, &xa, &xb)), &l))
@@ -123,7 +123,7 @@ func (matern52) Cov(l, xa, xb float64) float64 {
 	if ad.Called() {
 		ad.Enter(&l, &xa, &xb)
 	} else {
-		panic("Cov called outside Observe.")
+		panic("Cov called outside Observe")
 	}
 	var d float64
 	ad.Assignment(&d, ad.Arithmetic(ad.OpDiv, ad.Elemental(math.Abs, ad.Arithmetic(ad.OpSub, &xa, &xb)), &l))

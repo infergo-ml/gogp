@@ -69,74 +69,95 @@ func (gp *GP) addTodK(
 	}
 }
 
+const (
+	withoutGradient = false
+	withGradient    = true
+)
+
 // Absorb absorbs observations into the process.
 func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 	// Set the defaults
 	gp.defaults()
-
 	// Remember the inputs
 	gp.X, gp.Y = x, y
-	// K's gradient by parameters and inputs
-	if gp.withObs {
-		gp.dK = make([]*mat.SymDense,
-			gp.Simil.NTheta()+gp.Noise.NTheta()+gp.NDim*len(x))
-	} else {
-		gp.dK = make([]*mat.SymDense,
-			gp.Simil.NTheta()+gp.Noise.NTheta())
+	// When Absorb is called directly, the gradient is not computed
+	return gp.absorb(withoutGradient)
+}
+
+func (gp *GP) absorb(withGrad bool) (err error) {
+	if withGrad {
+		// K's gradient by parameters and inputs
+		if gp.withObs {
+			gp.dK = make([]*mat.SymDense,
+				gp.Simil.NTheta()+gp.Noise.NTheta()+gp.NDim*len(gp.X))
+		} else {
+			gp.dK = make([]*mat.SymDense,
+				gp.Simil.NTheta()+gp.Noise.NTheta())
+		}
 	}
 
-	if len(x) == 0 {
+	if len(gp.X) == 0 {
 		// No observations
 		return nil
 	}
 
 	// Covariance matrix
-	K := mat.NewSymDense(len(x), nil)
+	K := mat.NewSymDense(len(gp.X), nil)
 
 	cov := func(i, j int, kargs, nargs []float64) {
-		copy(kargs[gp.Simil.NTheta()+gp.NDim:], x[j])
+		copy(kargs[gp.Simil.NTheta()+gp.NDim:], gp.X[j])
 		k := gp.Simil.Observe(kargs)
-		kgrad := model.Gradient(gp.Simil)
-		for i := 0; i != gp.Simil.NTheta(); i++ {
-			kgrad[i] *= gp.ThetaSimil[i]
-		}
-		gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
-		if gp.withObs {
-			gp.addTodK(i, j,
-				gp.Simil.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
-				gp.Simil.NTheta(),
-				gp.NDim,
-				kgrad)
-			gp.addTodK(i, j,
-				gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
-				gp.Simil.NTheta()+gp.NDim,
-				gp.NDim,
-				kgrad)
-		}
-		if j == i { // Diagonal, add noise
-			copy(nargs[gp.Noise.NTheta():], x[j])
-			n := gp.Noise.Observe(nargs)
-			ngrad := model.Gradient(gp.Noise)
-			for i := 0; i != gp.Noise.NTheta(); i++ {
-				ngrad[i] *= gp.ThetaNoise[i]
+		if withGrad {
+			kgrad := model.Gradient(gp.Simil)
+			for i := 0; i != gp.Simil.NTheta(); i++ {
+				kgrad[i] *= gp.ThetaSimil[i]
 			}
-			gp.addTodK(i, j,
-				gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
+			gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
 			if gp.withObs {
 				gp.addTodK(i, j,
-					gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
-					gp.Noise.NTheta(),
+					gp.Simil.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
+					gp.Simil.NTheta(),
 					gp.NDim,
-					ngrad)
+					kgrad)
+				gp.addTodK(i, j,
+					gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
+					gp.Simil.NTheta()+gp.NDim,
+					gp.NDim,
+					kgrad)
+			}
+		} else {
+			model.DropGradient(gp.Simil)
+		}
+		if j == i { // Diagonal, add noise
+			copy(nargs[gp.Noise.NTheta():], gp.X[j])
+			n := gp.Noise.Observe(nargs)
+			if withGrad {
+				ngrad := model.Gradient(gp.Noise)
+				for i := 0; i != gp.Noise.NTheta(); i++ {
+					ngrad[i] *= gp.ThetaNoise[i]
+				}
+				gp.addTodK(i, j,
+					gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
+				if gp.withObs {
+					gp.addTodK(i, j,
+						gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
+						gp.Noise.NTheta(),
+						gp.NDim,
+						ngrad)
+				}
+			} else {
+				model.DropGradient(gp.Noise)
 			}
 			k += n
 		}
 		K.SetSym(i, j, k)
 	}
 
-	for i := range gp.dK {
-		gp.dK[i] = mat.NewSymDense(len(x), nil)
-		gp.dK[i].Zero()
+	if withGrad {
+		for i := range gp.dK {
+			gp.dK[i] = mat.NewSymDense(len(gp.X), nil)
+			gp.dK[i].Zero()
+		}
 	}
 
 	if gp.Parallel {
@@ -161,7 +182,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		}
 
 		// sync channel
-		wait := make(chan bool, len(x))
+		wait := make(chan bool, len(gp.X))
 
 		// Ultimately, all elements of the covariance matrix
 		// could be computed in parallel; however, the number of
@@ -170,11 +191,11 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		// all covariances in each row of the (upper triangle of)
 		// the covariance matrix in parallel, spawning as many
 		// goroutines as there are inputs.
-		for i := range x {
+		for i := range gp.X {
 			go func(i int) {
 				kargs := kpool.Get().([]float64)
-				copy(kargs[gp.Simil.NTheta():], x[i])
-				for j := i; j != len(x); j++ {
+				copy(kargs[gp.Simil.NTheta():], gp.X[i])
+				for j := i; j != len(gp.X); j++ {
 					nargs := npool.Get().([]float64)
 					cov(i, j, kargs, nargs)
 					npool.Put(nargs)
@@ -185,7 +206,7 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		}
 
 		// Wait for all goroutines to finish
-		for range x {
+		for range gp.X {
 			<-wait
 		}
 	} else {
@@ -194,9 +215,9 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		copy(kargs, gp.ThetaSimil)
 		copy(nargs, gp.ThetaNoise)
 
-		for i := range x {
-			copy(kargs[gp.Simil.NTheta():], x[i])
-			for j := i; j != len(x); j++ {
+		for i := range gp.X {
+			copy(kargs[gp.Simil.NTheta():], gp.X[i])
+			for j := i; j != len(gp.X); j++ {
 				cov(i, j, kargs, nargs)
 			}
 		}
@@ -206,8 +227,8 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		return fmt.Errorf("Factorize(%v)", mat.Formatted(K))
 	}
 
-	gp.alpha = mat.NewVecDense(len(x), nil)
-	err = gp.l.SolveVecTo(gp.alpha, mat.NewVecDense(len(y), y))
+	gp.alpha = mat.NewVecDense(len(gp.X), nil)
+	err = gp.l.SolveVecTo(gp.alpha, mat.NewVecDense(len(gp.Y), gp.Y))
 	if err != nil {
 		return err
 	}
@@ -374,7 +395,7 @@ func (gp *GP) Observe(x []float64) float64 {
 		panic("len(x)")
 	}
 
-	err := gp.Absorb(gp.X, gp.Y)
+	err := gp.absorb(withGradient)
 	if err != nil {
 		panic(err)
 	}
