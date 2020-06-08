@@ -100,8 +100,8 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 		for i := 0; i != gp.Simil.NTheta(); i++ {
 			kgrad[i] *= gp.ThetaSimil[i]
 		}
+		gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
 		if gp.withObs {
-			gp.addTodK(i, j, 0, 0, gp.Simil.NTheta(), kgrad)
 			gp.addTodK(i, j,
 				gp.Simil.NTheta()+gp.Noise.NTheta()+i*gp.NDim,
 				gp.Simil.NTheta(),
@@ -120,9 +120,9 @@ func (gp *GP) Absorb(x [][]float64, y []float64) (err error) {
 			for i := 0; i != gp.Noise.NTheta(); i++ {
 				ngrad[i] *= gp.ThetaNoise[i]
 			}
+			gp.addTodK(i, j,
+				gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
 			if gp.withObs {
-				gp.addTodK(i, j,
-					gp.Simil.NTheta(), 0, gp.Noise.NTheta(), ngrad)
 				gp.addTodK(i, j,
 					gp.Simil.NTheta()+gp.Noise.NTheta()+j*gp.NDim,
 					gp.Noise.NTheta(),
