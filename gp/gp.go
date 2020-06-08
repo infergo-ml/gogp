@@ -29,7 +29,7 @@ type GP struct {
 	Parallel bool
 
 	// Cached computations
-	withObs bool            // true iff observations are inferred
+	withObs bool            // true when observations are inferred
 	l       mat.Cholesky    // Cholesky decomposition of K
 	alpha   *mat.VecDense   // K^-1 y
 	dK      []*mat.SymDense // gradient of K
