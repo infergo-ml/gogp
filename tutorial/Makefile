@@ -1,10 +1,12 @@
 all: selfcheck
+	
+GO=go
 
 STUDIES=barebones hyperpriors warpedtime events anynoise
 
 selfcheck:
 	for study in $(STUDIES); do \
-		(cd $$study && make) \
+		(cd $$study && make GO=$(GO)) \
 	done
 
 clean:

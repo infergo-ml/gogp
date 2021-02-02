@@ -1,10 +1,12 @@
 all: selfcheck
 
+GO=go
+
 selfcheck: barebones
 	./barebones selfcheck
 
 barebones: kernel/ad/kernel.go main.go ../tutorial.go ../../gp/gp.go
-	go build .
+	$(GO) build .
 
 kernel/ad/kernel.go: kernel/kernel.go
 	deriv kernel

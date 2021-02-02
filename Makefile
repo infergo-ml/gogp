@@ -1,10 +1,12 @@
 all: test build
 
+GO=go
+
 build: kernel/ad/kernel.go
-	go build ./gp ./kernel ./tutorial
+	$(GO) build ./gp ./kernel ./tutorial
 
 test: kernel/ad/kernel.go
-	go test ./gp ./kernel ./tutorial
+	$(GO) test ./gp ./kernel ./tutorial
 
 kernel/ad/kernel.go: kernel/kernel.go kernel/noise.go
 	deriv kernel

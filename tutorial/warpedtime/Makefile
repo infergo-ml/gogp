@@ -1,10 +1,12 @@
 all: selfcheck
 
+GO=go
+
 selfcheck: warpedtime
 	./warpedtime selfcheck
 
 warpedtime: kernel/ad/kernel.go model/ad/model.go main.go ../tutorial.go
-	go build .
+	$(GO) build .
 
 kernel/ad/kernel.go: kernel/kernel.go
 	deriv kernel
