@@ -18,21 +18,23 @@ type Kernel interface {
 
 // Type GP is the barebone implementation of GP.
 type GP struct {
-	NDim                   int       // number of dimensions
-	Simil, Noise           Kernel    // kernels
-	ThetaSimil, ThetaNoise []float64 // kernel parameters
+	// Configuration
+	NDim         int    // number of dimensions
+	Simil, Noise Kernel // kernels
 
-	X [][]float64 // inputs
-	Y []float64   // outputs
+	// Data
+	ThetaSimil, ThetaNoise []float64   // kernel parameters
+	X                      [][]float64 // inputs
+	Y                      []float64   // outputs
 
-	// When true, covariances are computed in parallel
-	Parallel bool
+	// Optimizations
+	Parallel bool // when true, covariances are computed in parallel
+	withObs  bool // set to true when observations are inferred
 
 	// Cached computations
-	L       mat.Cholesky    // Cholesky decomposition of K
-	Alpha   *mat.VecDense   // K^-1 y
-	withObs bool            // true when observations are inferred
-	dK      []*mat.SymDense // gradient of K
+	L     mat.Cholesky    // Cholesky decomposition of K
+	Alpha *mat.VecDense   // K^-1 y
+	dK    []*mat.SymDense // gradient of K
 }
 
 // Default noise, present for numerical stability; can
@@ -250,7 +252,9 @@ func (gp *GP) LML() float64 {
 	return lml
 }
 
-// Produce computes predictions.
+// Produce computes predictions. Depends on ThetaSimil, ThetaNoise,
+// X, L, Alpha; this fields must be set if Produce is used on stored
+// results of a call to Absorb.
 func (gp *GP) Produce(x [][]float64) (
 	mu, sigma []float64,
 	err error,
