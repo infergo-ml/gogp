@@ -29,9 +29,9 @@ type GP struct {
 	Parallel bool
 
 	// Cached computations
+	L       mat.Cholesky    // Cholesky decomposition of K
+	Alpha   *mat.VecDense   // K^-1 y
 	withObs bool            // true when observations are inferred
-	l       mat.Cholesky    // Cholesky decomposition of K
-	alpha   *mat.VecDense   // K^-1 y
 	dK      []*mat.SymDense // gradient of K
 }
 
@@ -223,12 +223,12 @@ func (gp *GP) absorb(withGrad bool) (err error) {
 		}
 	}
 
-	if !gp.l.Factorize(K) {
+	if !gp.L.Factorize(K) {
 		return fmt.Errorf("Factorize(%v)", mat.Formatted(K))
 	}
 
-	gp.alpha = mat.NewVecDense(len(gp.X), nil)
-	err = gp.l.SolveVecTo(gp.alpha, mat.NewVecDense(len(gp.Y), gp.Y))
+	gp.Alpha = mat.NewVecDense(len(gp.X), nil)
+	err = gp.L.SolveVecTo(gp.Alpha, mat.NewVecDense(len(gp.Y), gp.Y))
 	if err != nil {
 		return err
 	}
@@ -245,8 +245,8 @@ func (gp *GP) LML() float64 {
 		return lml
 	}
 	lml -= 0.5 * float64(len(gp.X)) * math.Log(2*math.Pi)
-	lml -= 0.5 * gp.l.LogDet()
-	lml -= 0.5 * mat.Dot(mat.NewVecDense(len(gp.Y), gp.Y), gp.alpha)
+	lml -= 0.5 * gp.L.LogDet()
+	lml -= 0.5 * mat.Dot(mat.NewVecDense(len(gp.Y), gp.Y), gp.Alpha)
 	return lml
 }
 
@@ -328,10 +328,10 @@ func (gp *GP) Produce(x [][]float64) (
 			}
 		}
 
-		mean.MulVec(Kstar.T(), gp.alpha)
+		mean.MulVec(Kstar.T(), gp.Alpha)
 
 		v := mat.NewDense(len(gp.X), len(x), nil)
-		if err := gp.l.SolveTo(v, Kstar); err != nil {
+		if err := gp.L.SolveTo(v, Kstar); err != nil {
 			return nil, nil, err
 		}
 		covariance = mat.NewDense(len(x), len(x), nil)
@@ -428,7 +428,7 @@ func (gp *GP) Gradient() []float64 {
 	// Gradient by parameters (and possibly inputs)
 	// α α^⊤
 	a := mat.NewDense(len(gp.Y), len(gp.Y), nil)
-	a.Mul(gp.alpha, gp.alpha.T())
+	a.Mul(gp.Alpha, gp.Alpha.T())
 	if gp.Parallel {
 		// register pool
 		rpool := sync.Pool{
@@ -447,7 +447,7 @@ func (gp *GP) Gradient() []float64 {
 				r0.Mul(a, gp.dK[i])
 				// Σ^−1 ∂Σ/∂θ
 				r1 := rpool.Get().(*mat.Dense)
-				gp.l.SolveTo(r1, gp.dK[i])
+				gp.L.SolveTo(r1, gp.dK[i])
 				// (α α^⊤ - Σ^−1) ∂Σ/∂θ
 				r2 := rpool.Get().(*mat.Dense)
 				r2.Sub(r0, r1)
@@ -473,7 +473,7 @@ func (gp *GP) Gradient() []float64 {
 			// α α^⊤ ∂Σ/∂θ
 			r0.Mul(a, gp.dK[i])
 			// Σ^−1 ∂Σ/∂θ
-			gp.l.SolveTo(r1, gp.dK[i])
+			gp.L.SolveTo(r1, gp.dK[i])
 			// (α α^⊤ - Σ^−1) ∂Σ/∂θ
 			r2.Sub(r0, r1)
 
@@ -484,7 +484,7 @@ func (gp *GP) Gradient() []float64 {
 	if gp.withObs {
 		// Gradient by outputs
 		for i := range gp.Y {
-			grad[len(gp.dK)+i] = -gp.alpha.AtVec(i)
+			grad[len(gp.dK)+i] = -gp.Alpha.AtVec(i)
 		}
 	}
 
