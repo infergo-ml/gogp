@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bitbucket.org/dtolpin/gogp/gp"
-	"bitbucket.org/dtolpin/gogp/tutorial"
+	. "bitbucket.org/dtolpin/gogp/gp"
+	. "bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/events/kernel/ad"
 	"flag"
 	"fmt"
@@ -31,6 +31,10 @@ to demonstrate basic functionality.
 	flag.StringVar(&EVENTS, "events", EVENTS,
 		"comma separated colon connected event list \"from:to:discount,...\", "+
 			"for example \"1.:2.5:0.3,3:6:0.5\"")
+	flag.BoolVar(&PARALLEL, "p", PARALLEL,
+		"compute covariance in parallel")
+	flag.StringVar(&ALG, "a", ALG,
+		"optimization algorithm + adam or lbfgs)")
 }
 
 func main() {
@@ -63,7 +67,7 @@ func main() {
 		}
 	}
 
-	gp := &gp.GP{
+	gp := &GP{
 		NDim:  1,
 		Simil: simil,
 		Noise: Noise(0.01),
@@ -73,7 +77,7 @@ func main() {
 	}
 
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
-	tutorial.Evaluate(gp, gp, theta, input, output)
+	Evaluate(gp, gp, theta, input, output)
 }
 
 var selfCheckData = `0.1,-3.376024003717768007e+00
