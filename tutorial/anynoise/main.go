@@ -1,11 +1,10 @@
 package main
 
 import (
-	"bitbucket.org/dtolpin/gogp/gp"
-	"bitbucket.org/dtolpin/gogp/tutorial"
+	. "bitbucket.org/dtolpin/gogp/gp"
+	. "bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/anynoise/kernel/ad"
 	. "bitbucket.org/dtolpin/gogp/tutorial/anynoise/model/ad"
-	"bitbucket.org/dtolpin/infergo/model"
 	"flag"
 	"fmt"
 	"io"
@@ -25,38 +24,31 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
+	flag.BoolVar(&PARALLEL, "p", PARALLEL,
+		"compute covariance in parallel")
+	flag.StringVar(&ALG, "a", ALG,
+		"optimization algorithm + adam or lbfgs)")
 }
 
-type Model struct {
-	gp           *gp.GP
-	priors       *Priors
-	gGrad, pGrad []float64
+type Anynoise struct {
+	*Model
 }
 
-func (m *Model) Observe(x []float64) float64 {
-	var gll, pll float64
-	gll, m.gGrad = m.gp.Observe(x[1:]), model.Gradient(m.gp)
-	pll, m.pGrad = m.priors.Observe(x), model.Gradient(m.priors)
-	return gll + pll
-}
-
-func (m *Model) Gradient() []float64 {
-	for i := range m.gGrad {
-		m.pGrad[i+1] += m.gGrad[i]
-	}
+func (m *Anynoise) Gradient() []float64 {
+	grad := m.Model.Gradient()
 
 	// Wipe gradients of inputs but keep gradients of outputs
-	ixfirst := 1 + m.gp.Simil.NTheta() + m.gp.Noise.NTheta()
-	iyfirst := ixfirst + len(m.gp.X)
+	ixfirst := m.GP.Simil.NTheta() + m.GP.Noise.NTheta()
+	iyfirst := ixfirst + len(m.GP.X)
 	for i := ixfirst; i != iyfirst; i++ {
-		m.pGrad[i] = 0
+		grad[i] = 0
 	}
 
-	return m.pGrad
+	return grad
 }
 
 func main() {
-	tutorial.OPTINP = true
+	OPTINP = true
 
 	var (
 		input  io.Reader = os.Stdin
@@ -72,16 +64,19 @@ func main() {
 		panic("usage")
 	}
 
-	gp := &gp.GP{
+	gp := &GP{
 		NDim:  1,
 		Simil: Simil,
+		Noise: Noise,
 	}
-	m := &Model{
-		gp:     gp,
-		priors: &Priors{},
+	m := &Anynoise{
+		&Model{
+			GP: gp,
+			Priors: &Priors{},
+		},
 	}
-	theta := make([]float64, 1+gp.Simil.NTheta())
-	tutorial.Evaluate(gp, m, theta, input, output)
+	theta := make([]float64, gp.Simil.NTheta() + gp.Noise.NTheta())
+	Evaluate(gp, m, theta, input, output)
 }
 
 var selfCheckData = `0.0,-0.04322589452340684

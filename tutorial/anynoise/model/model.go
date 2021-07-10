@@ -11,9 +11,9 @@ type Priors struct {
 
 func (m *Priors) Observe(x []float64) float64 {
 	const (
-		s  = iota // noise
-		c         // output scale
+		c  = iota // output scale
 		l         // length scale
+		s         // noise
 		i0        // first input
 	)
 
@@ -26,15 +26,15 @@ func (m *Priors) Observe(x []float64) float64 {
 
 	ll := 0.
 
-	// The noise standard deviation is less than 1, in wide
-	// margins.
-	ll += Normal.Logp(-1, 2, x[s])
-
 	// Output scale is mostly less than 1.
 	ll += Normal.Logp(-1, 1, x[c])
 
 	// Length scale is around 1, in wide margins.
 	ll += Normal.Logp(0, 2, x[l])
+
+	// The noise standard deviation is less than 1, in wide
+	// margins.
+	ll += Normal.Logp(-1, 2, x[s])
 
 	// Instead of Gaussian, we assume Laplacian noise.
 	for i := range m.Y {

@@ -5,7 +5,6 @@ import (
 	. "bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/hyperpriors/kernel/ad"
 	. "bitbucket.org/dtolpin/gogp/tutorial/hyperpriors/model/ad"
-	"bitbucket.org/dtolpin/infergo/ad"
 	"flag"
 	"fmt"
 	"io"
@@ -13,15 +12,11 @@ import (
 	"strings"
 )
 
-var (
-	PARALLEL = false
-)
-
 func init() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			`A model with priors on hyperparameters. Invocation:
-  %s < INPUT > OUTPUT
+  %s [OPTIONS] < INPUT > OUTPUT
 or
   %s selfcheck
 In 'selfcheck' mode, the data hard-coded into the program is used,
@@ -29,7 +24,10 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
-	flag.BoolVar(&PARALLEL, "p", PARALLEL, "compute covariance in parallel")
+	flag.StringVar(&ALG, "a", ALG,
+		"optimization algorithm + adam or lbfgs)")
+	flag.BoolVar(&PARALLEL, "p", PARALLEL,
+		"compute covariance in parallel")
 }
 
 func main() {
@@ -47,15 +45,10 @@ func main() {
 		panic("usage")
 	}
 
-	if PARALLEL {
-		ad.MTSafeOn()
-	}
-
 	gp := &GP{
 		NDim:     1,
 		Simil:    Simil,
 		Noise:    Noise,
-		Parallel: ad.IsMTSafe(),
 	}
 	m := &Model{
 		GP:     gp,

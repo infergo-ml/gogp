@@ -22,13 +22,14 @@ func (simil) Observe(x []float64) float64 {
 
 func (simil) NTheta() int { return 2 }
 
-// The noise kernel.
+// The noise kernel, allocates a single parameter,
+// which is used to define the noise in the priors.
 type noise struct{}
 
 var Noise noise
 
 func (n noise) Observe(x []float64) float64 {
-	return 0.01 * kernel.UniformNoise.Observe(x)
+	return 1e-5 // added for numerical stability
 }
 
 func (noise) NTheta() int { return 1 }

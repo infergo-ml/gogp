@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bitbucket.org/dtolpin/gogp/gp"
-	"bitbucket.org/dtolpin/gogp/tutorial"
+	. "bitbucket.org/dtolpin/gogp/gp"
+	. "bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/barebones/kernel/ad"
 	"bitbucket.org/dtolpin/infergo/ad"
 	"flag"
@@ -12,17 +12,13 @@ import (
 	"strings"
 )
 
-var (
-	PARALLEL = false
-)
-
 func init() {
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(),
 			`A bare bones time series forecasting with gogp. RBF similarity
 and uniform noise kernels are used. This basic use is similar to
 GP regression with scikit-learn, for example. Invocation:
-  %s < INPUT > OUTPUT
+  %s [OPTIONS] < INPUT > OUTPUT
 or
   %s selfcheck
 In 'selfcheck' mode, the data hard-coded into the program is used,
@@ -30,9 +26,10 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
-	flag.BoolVar(&PARALLEL, "p", PARALLEL, "compute covariance in parallel")
-	flag.StringVar(&tutorial.ALG, "a", tutorial.ALG, "optimization algorithm "+
-		"(adam or lbfgs)")
+	flag.StringVar(&ALG, "a", ALG,
+		"optimization algorithm + adam or lbfgs)")
+	flag.BoolVar(&PARALLEL, "p", PARALLEL,
+		"compute covariance in parallel")
 }
 
 func main() {
@@ -50,11 +47,7 @@ func main() {
 		panic("usage")
 	}
 
-	if PARALLEL {
-		ad.MTSafeOn()
-	}
-
-	gp := &gp.GP{
+	gp := &GP{
 		NDim:     1,
 		Simil:    Simil,
 		Noise:    Noise(0.01),
@@ -64,7 +57,7 @@ func main() {
 		// details. We might modify the initial point instead.
 	}
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
-	tutorial.Evaluate(gp, gp, theta, input, output)
+	Evaluate(gp, gp, theta, input, output)
 }
 
 var selfCheckData = `0.0,-0.04322589452340684

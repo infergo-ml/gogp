@@ -21,6 +21,7 @@ var (
 	OPTINP    = false
 	MINOPT    = 0
 	ALG       = "lbfgs"
+	PARALLEL  = false
 	ITERS     = 1000 // major iterations
 	MINITERS  = 10   // minimum iterations to accept in lbfgs
 	THRESHOLD = 1e-6 // gradient threshold
@@ -48,6 +49,11 @@ func Evaluate(
 	rdr io.Reader, // data
 	wtr io.Writer, // forecasts
 ) error {
+	if PARALLEL {
+		ad.MTSafeOn()
+	}
+	gp.Parallel = ad.IsMTSafe()
+
 	// Load the data
 	var err error
 	fmt.Fprint(os.Stderr, "loading...")
