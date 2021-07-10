@@ -46,9 +46,9 @@ func main() {
 	}
 
 	gp := &GP{
-		NDim:     1,
-		Simil:    Simil,
-		Noise:    Noise,
+		NDim:  1,
+		Simil: Simil,
+		Noise: Noise,
 	}
 	m := &Model{
 		GP:     gp,

@@ -1,11 +1,10 @@
 package main
 
 import (
-	"bitbucket.org/dtolpin/gogp/gp"
-	"bitbucket.org/dtolpin/gogp/tutorial"
+	. "bitbucket.org/dtolpin/gogp/gp"
+	. "bitbucket.org/dtolpin/gogp/tutorial"
 	. "bitbucket.org/dtolpin/gogp/tutorial/warpedtime/kernel/ad"
 	. "bitbucket.org/dtolpin/gogp/tutorial/warpedtime/model/ad"
-	"bitbucket.org/dtolpin/infergo/model"
 	"flag"
 	"fmt"
 	"io"
@@ -32,7 +31,9 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
-	flag.StringVar(&tutorial.ALG, "a", tutorial.ALG, "optimization algorithm "+
+	flag.BoolVar(&PARALLEL, "p", PARALLEL,
+		"compute covariance in parallel")
+	flag.StringVar(&ALG, "a", ALG, "optimization algorithm "+
 		"(adam or lbfgs)")
 	flag.Float64Var(&LOGSIGMA, "logsigma", LOGSIGMA,
 		"log standard deviation of relative step")
@@ -40,37 +41,26 @@ to demonstrate basic functionality.
 		"show warped inputs")
 }
 
-type Model struct {
-	gp           *gp.GP
-	priors       *Priors
-	gGrad, pGrad []float64
+type WarpedTime struct {
+	*Model
 }
 
-func (m *Model) Observe(x []float64) float64 {
-	var gll, pll float64
-	gll, m.gGrad = m.gp.Observe(x), model.Gradient(m.gp)
-	pll, m.pGrad = m.priors.Observe(x), model.Gradient(m.priors)
-	return gll + pll
-}
-
-func (m *Model) Gradient() []float64 {
-	for i := range m.pGrad {
-		m.gGrad[i] += m.pGrad[i]
-	}
+func (m *WarpedTime) Gradient() []float64 {
+	grad := m.Model.Gradient()
 
 	// Wipe gradients of the first, last input and all outputs
-	ixfirst := m.gp.Simil.NTheta() + m.gp.Noise.NTheta()
-	ixlast := ixfirst + len(m.gp.X) - 1
-	m.gGrad[ixfirst] = 0
-	for i := ixlast; i != len(m.gGrad); i++ {
-		m.gGrad[i] = 0
+	ixfirst := m.GP.Simil.NTheta() + m.GP.Noise.NTheta()
+	ixlast := ixfirst + len(m.GP.X) - 1
+	grad[ixfirst] = 0
+	for i := ixlast; i != len(grad); i++ {
+		grad[i] = 0
 	}
 
-	return m.gGrad
+	return grad
 }
 
 func main() {
-	tutorial.OPTINP = true
+	OPTINP = true
 
 	var (
 		input  io.Reader = os.Stdin
@@ -86,14 +76,16 @@ func main() {
 		panic("usage")
 	}
 
-	gp := &gp.GP{
+	gp := &GP{
 		NDim:  1,
 		Simil: Simil,
 		Noise: Noise,
 	}
-	m := &Model{
-		gp:     gp,
-		priors: &Priors{LogSigma: LOGSIGMA},
+	m := &WarpedTime{
+		&Model{
+			GP:     gp,
+			Priors: &Priors{LogSigma: LOGSIGMA},
+		},
 	}
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 
@@ -101,7 +93,7 @@ func main() {
 
 	if SHOWWARP {
 		buffer := strings.Builder{}
-		tutorial.Evaluate(gp, m, theta, input, &buffer)
+		Evaluate(gp, m, theta, input, &buffer)
 		// Predict at updated inputs
 		mu, sigma, _ := gp.Produce(gp.X)
 
@@ -126,7 +118,7 @@ func main() {
 		// unmodified
 		fmt.Fprintln(output, lines[ilast])
 	} else {
-		tutorial.Evaluate(gp, m, theta, input, output)
+		Evaluate(gp, m, theta, input, output)
 	}
 }
 

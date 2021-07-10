@@ -30,11 +30,11 @@ to demonstrate basic functionality.
 		"optimization algorithm + adam or lbfgs)")
 }
 
-type Anynoise struct {
+type AnyNoise struct {
 	*Model
 }
 
-func (m *Anynoise) Gradient() []float64 {
+func (m *AnyNoise) Gradient() []float64 {
 	grad := m.Model.Gradient()
 
 	// Wipe gradients of inputs but keep gradients of outputs
@@ -69,13 +69,13 @@ func main() {
 		Simil: Simil,
 		Noise: Noise,
 	}
-	m := &Anynoise{
+	m := &AnyNoise{
 		&Model{
-			GP: gp,
+			GP:     gp,
 			Priors: &Priors{},
 		},
 	}
-	theta := make([]float64, gp.Simil.NTheta() + gp.Noise.NTheta())
+	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 	Evaluate(gp, m, theta, input, output)
 }
 

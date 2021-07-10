@@ -6,7 +6,7 @@ import (
 
 type Model struct {
 	*GP
-	Priors model.Model
+	Priors       model.Model
 	gGrad, pGrad []float64
 }
 
