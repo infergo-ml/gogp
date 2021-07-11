@@ -4,10 +4,12 @@ import (
 	"bitbucket.org/dtolpin/infergo/model"
 )
 
+// Type Model is the wrapper model combining a GP instance and
+// priors on the hyperparameters.
 type Model struct {
-	*GP
-	Priors       model.Model
-	gGrad, pGrad []float64
+	*GP                      // GP instance
+	Priors       model.Model // hyperparameter priors
+	gGrad, pGrad []float64   // GP and priors gradients
 }
 
 func (m *Model) Observe(x []float64) float64 {
