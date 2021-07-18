@@ -21,6 +21,10 @@ package kernel
 type ConstantNoise float64
 
 func (nk ConstantNoise) Observe(x []float64) float64 {
+	return nk.Var()
+}
+
+func (nk ConstantNoise) Var() float64 {
 	std := float64(nk)
 	return std * std
 }
@@ -37,7 +41,11 @@ type uniformNoise struct{}
 var UniformNoise uniformNoise
 
 func (nk uniformNoise) Observe(x []float64) float64 {
-	return x[0] * x[0]
+	return nk.Var(x[0])
+}
+
+func (nk uniformNoise) Var(std float64) float64 {
+	return std * std
 }
 
 func (uniformNoise) NTheta() int {
