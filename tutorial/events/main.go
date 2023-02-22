@@ -31,10 +31,6 @@ to demonstrate basic functionality.
 	flag.StringVar(&EVENTS, "events", EVENTS,
 		"comma separated colon connected event list \"from:to:discount,...\", "+
 			"for example \"1.:2.5:0.3,3:6:0.5\"")
-	flag.BoolVar(&PARALLEL, "p", PARALLEL,
-		"compute covariance in parallel")
-	flag.StringVar(&ALG, "a", ALG,
-		"optimization algorithm + adam or lbfgs)")
 }
 
 func main() {

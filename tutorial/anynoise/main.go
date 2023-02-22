@@ -24,10 +24,6 @@ to demonstrate basic functionality.
 `, os.Args[0], os.Args[0])
 		flag.PrintDefaults()
 	}
-	flag.BoolVar(&PARALLEL, "p", PARALLEL,
-		"compute covariance in parallel")
-	flag.StringVar(&ALG, "a", ALG,
-		"optimization algorithm + adam or lbfgs)")
 }
 
 type AnyNoise struct {

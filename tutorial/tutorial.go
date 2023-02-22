@@ -6,6 +6,7 @@ import (
 	"bitbucket.org/dtolpin/infergo/infer"
 	"bitbucket.org/dtolpin/infergo/model"
 	"encoding/csv"
+    "flag"
 	"fmt"
 	"gonum.org/v1/gonum/optimize"
 	"gonum.org/v1/gonum/stat"
@@ -27,10 +28,20 @@ var (
 	THRESHOLD = 1e-6 // gradient threshold
 	RATE      = 0.01 // learning rate (for Adam)
 	NTASKS    = 0
+    NONORMALIZE = false
+    OUTOFSAMPLE = false
 )
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	flag.StringVar(&ALG, "a", ALG,
+		"optimization algorithm + adam or lbfgs)")
+	flag.BoolVar(&PARALLEL, "p", PARALLEL,
+		"compute covariance in parallel")
+	flag.BoolVar(&NONORMALIZE, "n", NONORMALIZE,
+		"normalize outputs")
+	flag.BoolVar(&OUTOFSAMPLE, "o", OUTOFSAMPLE,
+		"forecast out of sample")
 }
 
 // Evaluate evaluates Gaussian process on CSV data.  One step
@@ -64,10 +75,15 @@ func Evaluate(
 	fmt.Fprintln(os.Stderr, "done")
 
 	// Normalize Y
-	meany, stdy := stat.MeanStdDev(Y, nil)
-	for i := range Y {
-		Y[i] = (Y[i] - meany) / stdy
-	}
+    var meany, stdy float64
+    if NONORMALIZE {
+        meany, stdy = 0., 1.
+    } else {
+        meany, stdy = stat.MeanStdDev(Y, nil)
+        for i := range Y {
+            Y[i] = (Y[i] - meany) / stdy
+        }
+    }
 
 	// Forecast one step out of sample, iteratively.
 	// Output data augmented with predictions.
@@ -171,12 +187,43 @@ func Evaluate(
 			fmt.Fprintf(wtr, "%f,", z[j])
 		}
 		fmt.Fprintf(wtr, "%f,%f,%f,%f,%f",
-			Y[end], mu[0], sigma[0], lml0, lml)
+			Y[end]*stdy + meany, 
+            mu[0]*stdy + meany,
+            sigma[0]*stdy,
+            lml0, lml)
 		for i := 0; i != len(theta); i++ {
 			fmt.Fprintf(wtr, ",%f", math.Exp(x[i]))
 		}
 		fmt.Fprintln(wtr)
 	}
+
+    if OUTOFSAMPLE {
+        Z := make([][]float64,  len(X))
+        for i := range Z {
+            Z[i] = make([]float64, len(X[0]))
+            copy(Z[i], X[i])
+            for j := range Z[i] {
+                Z[i][j] += X[len(X)-1][j]
+            }
+        }
+        Z = Z[1:]
+
+        mu, sigma, err := gp.Produce(Z)
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Failed to forecast: %v\n", err)
+        }
+
+        // Output forecasts
+        for i := range Z {
+            z := Z[i]
+            for j := range z {
+                fmt.Fprintf(wtr, "%f,", z[j])
+            }
+            fmt.Fprintf(wtr, "nan,%f,%f", mu[i]*stdy + meany, sigma[i]*stdy)
+            fmt.Fprintln(wtr)
+        }
+    }
+
 	fmt.Fprintln(os.Stderr, "done")
 
 	return nil
