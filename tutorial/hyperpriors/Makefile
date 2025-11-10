@@ -4,6 +4,7 @@ GO=go
 
 selfcheck: hyperpriors
 	./hyperpriors selfcheck
+	./hyperpriors -p selfcheck
 
 hyperpriors: kernel/ad/kernel.go model/ad/model.go main.go ../tutorial.go
 	$(GO) build .

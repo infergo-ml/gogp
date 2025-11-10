@@ -4,6 +4,7 @@ GO=go
 
 selfcheck: warpedtime
 	./warpedtime selfcheck
+	./warpedtime -p selfcheck
 
 warpedtime: kernel/ad/kernel.go model/ad/model.go main.go ../tutorial.go
 	$(GO) build .

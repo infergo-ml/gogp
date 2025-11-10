@@ -4,6 +4,7 @@ GO=go
 
 selfcheck: anynoise
 	./anynoise selfcheck
+	./anynoise -p selfcheck
 
 anynoise: kernel/ad/kernel.go model/ad/model.go main.go ../tutorial.go
 	$(GO) build .

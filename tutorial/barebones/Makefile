@@ -4,6 +4,7 @@ GO=go
 
 selfcheck: barebones
 	./barebones selfcheck
+	./barebones -p selfcheck
 
 barebones: kernel/ad/kernel.go main.go ../tutorial.go ../../gp/gp.go
 	$(GO) build .

@@ -194,7 +194,7 @@ func (gp *GP) absorb(withGrad bool) (err error) {
 		// the covariance matrix in parallel, spawning as many
 		// goroutines as there are inputs.
 		for i := range gp.X {
-			go func(i int) {
+			go func() {
 				kargs := kpool.Get().([]float64)
 				copy(kargs[gp.Simil.NTheta():], gp.X[i])
 				for j := i; j != len(gp.X); j++ {
@@ -204,7 +204,7 @@ func (gp *GP) absorb(withGrad bool) (err error) {
 				}
 				wait <- true
 				kpool.Put(kargs)
-			}(i)
+			}()
 		}
 
 		// Wait for all goroutines to finish
@@ -300,7 +300,7 @@ func (gp *GP) Produce(x [][]float64) (
 			wait := make(chan bool, len(x))
 
 			for i := range gp.X {
-				go func(i int) {
+				go func() {
 					kargs := kpool.Get().([]float64)
 					copy(kargs[gp.Simil.NTheta():], gp.X[i])
 					for j := range x {
@@ -311,7 +311,7 @@ func (gp *GP) Produce(x [][]float64) (
 					}
 					wait <- true
 					kpool.Put(kargs)
-				}(i)
+				}()
 			}
 
 			// Wait for all goroutines to finish
@@ -444,7 +444,7 @@ func (gp *GP) Gradient() []float64 {
 		wait := make(chan bool, len(gp.dK))
 
 		for i := range gp.dK {
-			go func(i int) {
+			go func() {
 				// registers
 				// α α^⊤ ∂Σ/∂θ
 				r0 := rpool.Get().(*mat.Dense)
@@ -461,7 +461,7 @@ func (gp *GP) Gradient() []float64 {
 				grad[i] = 0.5 * mat.Trace(r2)
 				wait <- true
 				rpool.Put(r2)
-			}(i)
+			}()
 		}
 
 		// Wait for all goroutines to finish

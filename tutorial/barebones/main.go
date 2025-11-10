@@ -52,6 +52,7 @@ func main() {
 		// point for input noise; see kernel/kernel.go for
 		// details. We might modify the initial point instead.
 	}
+	fmt.Println(ad.IsMTSafe())
 	theta := make([]float64, gp.Simil.NTheta()+gp.Noise.NTheta())
 	Evaluate(gp, gp, theta, input, output)
 }
